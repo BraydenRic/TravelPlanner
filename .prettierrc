@@ -1,0 +1,28 @@
+{
+  "semi": true,
+  "trailingComma": "all",
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "bracketSpacing": true,
+  "bracketSameLine": false,
+  "arrowParens": "always",
+  "endOfLine": "lf",
+  "importOrder": [
+    "^react$",
+    "^react-native$",
+    "<THIRD_PARTY_MODULES>",
+    "^@/(.*)$",
+    "^@components/(.*)$",
+    "^@services/(.*)$",
+    "^@stores/(.*)$",
+    "^@lib/(.*)$",
+    "^@hooks/(.*)$",
+    "^@constants/(.*)$",
+    "^@theme/(.*)$",
+    "^[./]"
+  ],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true
+}

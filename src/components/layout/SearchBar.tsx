@@ -1,0 +1,270 @@
+/**
+ * SearchBar — Expandable search bar with glass results dropdown.
+ * Collapses to icon, expands with spring animation.
+ */
+
+import React, { memo, useCallback, useRef, useState } from 'react'
+import {
+  Keyboard,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
+import Animated, {
+  useSharedValue,
+  withSpring,
+  useAnimatedStyle,
+} from 'react-native-reanimated'
+import Svg, { Path, Circle } from 'react-native-svg'
+import * as Haptics from 'expo-haptics'
+import { FlashList } from '@shopify/flash-list'
+import { colors } from '@theme/colors'
+import { borderRadius, borderWidth, spacing } from '@theme/spacing'
+import { fontFamily, fontSize } from '@theme/typography'
+import { springs } from '@theme/animations'
+import { COUNTRIES } from '@constants/countries'
+import type { CountryEntry } from '@constants/countries'
+
+interface SearchBarProps {
+  onSearch: (query: string) => void
+  placeholder?: string
+  style?: object
+}
+
+const EXPANDED_WIDTH = 260
+const COLLAPSED_WIDTH = 44
+
+function SearchBarInner({
+  onSearch,
+  placeholder = 'Search countries...',
+}: SearchBarProps) {
+  const [expanded, setExpanded] = useState(false)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<CountryEntry[]>([])
+  const inputRef = useRef<TextInput>(null)
+  const widthAnim = useSharedValue(COLLAPSED_WIDTH)
+
+  const expand = useCallback(() => {
+    if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    setExpanded(true)
+    widthAnim.value = withSpring(EXPANDED_WIDTH, springs.standard)
+    setTimeout(() => inputRef.current?.focus(), 150)
+  }, [widthAnim])
+
+  const collapse = useCallback(() => {
+    Keyboard.dismiss()
+    widthAnim.value = withSpring(COLLAPSED_WIDTH, springs.standard)
+    setTimeout(() => {
+      setExpanded(false)
+      setQuery('')
+      setResults([])
+    }, 200)
+  }, [widthAnim])
+
+  const handleTextChange = useCallback(
+    (text: string) => {
+      setQuery(text)
+      onSearch(text)
+
+      if (text.length > 0) {
+        const filtered = COUNTRIES.filter((c) =>
+          c.name.toLowerCase().includes(text.toLowerCase()),
+        ).slice(0, 6)
+        setResults(filtered)
+      } else {
+        setResults([])
+      }
+    },
+    [onSearch],
+  )
+
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    width: widthAnim.value,
+  }))
+
+  const renderResult = useCallback(
+    ({ item }: { item: CountryEntry }) => {
+      const matchIndex = item.name.toLowerCase().indexOf(query.toLowerCase())
+
+      return (
+        <Pressable
+          onPress={() => {
+            onSearch(item.name)
+            collapse()
+          }}
+          style={styles.resultItem}
+        >
+          <Text style={styles.resultFlag}>{item.flag}</Text>
+          <Text style={styles.resultName}>
+            {matchIndex >= 0 ? (
+              <>
+                <Text style={styles.resultName}>{item.name.slice(0, matchIndex)}</Text>
+                <Text style={[styles.resultName, styles.highlight]}>
+                  {item.name.slice(matchIndex, matchIndex + query.length)}
+                </Text>
+                <Text style={styles.resultName}>{item.name.slice(matchIndex + query.length)}</Text>
+              </>
+            ) : (
+              item.name
+            )}
+          </Text>
+        </Pressable>
+      )
+    },
+    [query, onSearch, collapse],
+  )
+
+  return (
+    <View style={styles.wrapper}>
+      <Animated.View
+        style={[
+          styles.container,
+          animatedContainerStyle,
+        ]}
+      >
+        {/* Search icon */}
+        <Pressable
+          onPress={expanded ? collapse : expand}
+          style={styles.iconButton}
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? 'Close search' : 'Open search'}
+        >
+          <Svg width={20} height={20} viewBox="0 0 24 24">
+            <Circle
+              cx={11}
+              cy={11}
+              r={8}
+              fill="none"
+              stroke={colors.textSecondary}
+              strokeWidth={1.8}
+            />
+            <Path
+              d="M21 21 L16.65 16.65"
+              stroke={colors.textSecondary}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            />
+          </Svg>
+        </Pressable>
+
+        {/* Text input — visible when expanded */}
+        {expanded && (
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            value={query}
+            onChangeText={handleTextChange}
+            placeholder={placeholder}
+            placeholderTextColor={colors.textTertiary}
+            returnKeyType="search"
+            onSubmitEditing={() => {
+              onSearch(query)
+              collapse()
+            }}
+          />
+        )}
+      </Animated.View>
+
+      {/* Results dropdown */}
+      {expanded && results.length > 0 && (
+        <View style={styles.dropdown}>
+          <FlashList
+            data={results}
+            renderItem={renderResult}
+            estimatedItemSize={44}
+            keyExtractor={(item) => item.code}
+            scrollEnabled={false}
+          />
+        </View>
+      )}
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  wrapper: {
+    position: 'relative',
+    zIndex: 20,
+  },
+  container: {
+    height: 44,
+    backgroundColor: colors.glass,
+    borderRadius: borderRadius.full,
+    borderWidth: borderWidth.thin,
+    borderColor: colors.glassBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+      } as Record<string, string>,
+      default: {},
+    }),
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  input: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontFamily: fontFamily.body,
+    fontSize: fontSize.base,
+    paddingRight: spacing.md,
+    height: 44,
+  },
+  dropdown: {
+    position: 'absolute',
+    top: 48,
+    right: 0,
+    width: EXPANDED_WIDTH,
+    backgroundColor: colors.bgL1,
+    borderRadius: borderRadius.lg,
+    borderWidth: borderWidth.thin,
+    borderColor: colors.glassBorder,
+    overflow: 'hidden',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(24px)',
+      } as Record<string, string>,
+      default: {},
+    }),
+  },
+  resultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.glassBorder,
+    minHeight: 44,
+  },
+  resultFlag: {
+    fontSize: 18,
+  },
+  resultName: {
+    fontFamily: fontFamily.body,
+    fontSize: fontSize.base,
+    color: colors.textSecondary,
+  },
+  highlight: {
+    color: colors.accentTeal,
+    fontFamily: fontFamily.medium,
+  },
+})
+
+export const SearchBar = memo(SearchBarInner)

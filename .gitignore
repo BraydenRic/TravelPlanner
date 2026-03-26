@@ -1,0 +1,77 @@
+# Dependencies
+node_modules/
+.yarn/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native builds (generated — never commit)
+ios/
+android/
+
+# Environment — secrets must NEVER be committed (Security: M-14-C, 4.4)
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+.env.test
+# .env.example is intentionally NOT ignored — it documents required vars
+
+# TypeScript
+*.tsbuildinfo
+*.d.ts.map
+
+# Build outputs
+/build/
+/out/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test coverage
+/coverage/
+
+# EAS
+.eas/
+eas-build-local-nodejs/
+
+# Playwright
+/playwright-report/
+/playwright/.cache/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Source maps (should not be in repo)
+*.map
+
+# Supabase local development
+supabase/.branches/
+supabase/.temp/
+
+# Claude Code project memory (personal, not for repo)
+.claude/
