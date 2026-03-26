@@ -4,6 +4,7 @@
 
 import React, { useMemo } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { router } from 'expo-router'
 import Svg, { Circle } from 'react-native-svg'
 import { useAuthStore } from '@stores/authStore'
 import { usePlacesStore } from '@stores/placesStore'
@@ -141,12 +142,12 @@ export default function ProfileScreen() {
           </Text>
         </View>
         <Pressable
-          onPress={() => {}}
+          onPress={() => router.push('/profile/edit')}
           style={styles.settingsBtn}
           accessibilityRole="button"
-          accessibilityLabel="Settings"
+          accessibilityLabel="Edit profile"
         >
-          <Text style={styles.settingsIcon}>⚙</Text>
+          <Text style={styles.settingsIcon}>✎</Text>
         </Pressable>
       </View>
 

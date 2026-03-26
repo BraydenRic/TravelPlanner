@@ -18,7 +18,7 @@ import { CategoryTabs } from '@components/layout/CategoryTabs'
 import { SearchBar } from '@components/layout/SearchBar'
 import { RatingForm } from '@components/ratings/RatingForm'
 import { useMap } from '@hooks/useMap'
-import { getCitiesByCountry, createPlace, updatePlace, getPlaceByCountryAndCity, getPlaces } from '@services/places'
+import { getCitiesByCountry, createPlace, updatePlace, deletePlace, getPlaceByCountryAndCity, getPlaces } from '@services/places'
 import { upsertPlaceRatings } from '@services/ratings'
 import type { City, RatingCategory, PlaceCategory, VisitedPlace } from '@typedefs/database'
 import type { PlaceRatingsInput } from '@lib/validation'
@@ -67,7 +67,7 @@ export default function MapScreen() {
   } = useMap()
 
   const { activeCategory, setActiveCategory, activeDrillDownCity, setDrillDown } = useUIStore()
-  const { places, getPlacesByCountry, addPlace, updatePlace: updatePlaceInStore, setPlaces } = usePlacesStore()
+  const { places, getPlacesByCountry, addPlace, updatePlace: updatePlaceInStore, removePlace, setPlaces } = usePlacesStore()
   const { user } = useAuthStore()
   const [drillDownCityData, setDrillDownCityData] = useState<City[]>([])
 
@@ -78,12 +78,21 @@ export default function MapScreen() {
   }, [user, setPlaces])
 
   // Derive fill intensity from local store — updates immediately after any save
-  const fillIntensity = useMemo(() => buildFillIntensity(places), [places])
-
-  const totalVisited = useMemo(
-    () => new Set(places.filter((p) => p.category === 'been').map((p) => p.country_code)).size,
-    [places],
+  // Filter by activeCategory so each tab only highlights its own places
+  const fillIntensity = useMemo(
+    () => buildFillIntensity(places.filter((p) => p.category === activeCategory)),
+    [places, activeCategory],
   )
+
+  const statLabel = useMemo(() => {
+    const count = new Set(
+      places.filter((p) => p.category === activeCategory).map((p) => p.country_code),
+    ).size
+    const word = count === 1 ? 'country' : 'countries'
+    if (activeCategory === 'been') return `${count} ${word} visited`
+    if (activeCategory === 'want_to_go') return `${count} ${word} planned`
+    return `${count} ${word} lived in`
+  }, [places, activeCategory])
 
   const handleCityPress = useCallback(
     (cityId: string) => {
@@ -105,31 +114,29 @@ export default function MapScreen() {
       .catch(() => setDrillDownCityData([]))
   }, [activeDrillDownCountry])
 
-  const handleSearch = useCallback((_query: string) => {
-    // Search handled by SearchBar component
-  }, [])
+  const handleSearch = useCallback((_query: string) => {}, [])
 
   const handleRatingSubmit = useCallback(
-    async (ratings: Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>>, review: string, category: PlaceCategory) => {
+    async (ratings: Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>>, review: string) => {
       if (!activeDrillDownCountry || !activeDrillDownCity) return
       // Guest mode — save locally so the UI responds
       if (!user) {
         const existing = places.find(
-          (p) => p.country_code === activeDrillDownCountry && p.city_id === activeDrillDownCity,
+          (p) => p.country_code === activeDrillDownCountry && p.city_id === activeDrillDownCity && p.category === activeCategory,
         )
-        if (!existing) addPlace(makeLocalPlace(activeDrillDownCountry, activeDrillDownCity, category))
+        if (!existing) addPlace(makeLocalPlace(activeDrillDownCountry, activeDrillDownCity, activeCategory))
         clearDrillDown()
         return
       }
 
       try {
-        // Check if a visited_place already exists for this country+city
+        // Check if a visited_place already exists for this country+city+category
         const existing = await getPlaceByCountryAndCity(user.id, activeDrillDownCountry, activeDrillDownCity)
 
         let place
-        if (existing) {
+        if (existing && existing.category === activeCategory) {
           place = await updatePlace(existing.id, user.id, {
-            category,
+            category: activeCategory,
             review: review || undefined,
           })
           updatePlaceInStore(place)
@@ -137,7 +144,7 @@ export default function MapScreen() {
           place = await createPlace(user.id, {
             country_code: activeDrillDownCountry,
             city_id: activeDrillDownCity,
-            category,
+            category: activeCategory,
             review: review || undefined,
           })
           addPlace(place)
@@ -157,31 +164,34 @@ export default function MapScreen() {
         Alert.alert('Error saving rating', msg)
       }
     },
-    [user, places, activeDrillDownCountry, activeDrillDownCity, addPlace, updatePlaceInStore, clearDrillDown],
+    [user, places, activeCategory, activeDrillDownCountry, activeDrillDownCity, addPlace, updatePlaceInStore, clearDrillDown],
   )
 
   const handleRatingDismiss = useCallback(() => {
-    if (activeDrillDownCountry) {
-      setDrillDown(activeDrillDownCountry, undefined)
-    }
+    if (activeDrillDownCountry) setDrillDown(activeDrillDownCountry, undefined)
   }, [activeDrillDownCountry, setDrillDown])
 
   // Quick-mark a city without opening the full rating form
+  // Second tap on the same category deselects (removes) the mark
   const handleDotPress = useCallback(
     (cityId: string) => {
       if (!activeDrillDownCountry) return
       const existing = places.find(
-        (p) => p.country_code === activeDrillDownCountry && p.city_id === cityId,
+        (p) => p.country_code === activeDrillDownCountry && p.city_id === cityId && p.category === activeCategory,
       )
       if (!user) {
-        if (!existing) addPlace(makeLocalPlace(activeDrillDownCountry, cityId, activeCategory))
+        if (existing) {
+          removePlace(existing.id)
+        } else {
+          addPlace(makeLocalPlace(activeDrillDownCountry, cityId, activeCategory))
+        }
         return
       }
       void (async () => {
         try {
           if (existing) {
-            const updated = await updatePlace(existing.id, user.id, { category: activeCategory })
-            updatePlaceInStore(updated)
+            await deletePlace(existing.id, user.id)
+            removePlace(existing.id)
           } else {
             const place = await createPlace(user.id, {
               country_code: activeDrillDownCountry,
@@ -195,14 +205,14 @@ export default function MapScreen() {
         }
       })()
     },
-    [activeDrillDownCountry, activeCategory, user, places, addPlace, updatePlaceInStore],
+    [activeDrillDownCountry, activeCategory, user, places, addPlace, removePlace],
   )
 
   const drillDownCities = useMemo(() => {
     if (!activeDrillDownCountry) return []
     const countryPlaces = getPlacesByCountry(activeDrillDownCountry)
     return drillDownCityData.map((city) => {
-      const place = countryPlaces.find((p) => p.city_id === city.id)
+      const place = countryPlaces.find((p) => p.city_id === city.id && p.category === activeCategory)
       return {
         city,
         isVisited: !!place,
@@ -210,7 +220,7 @@ export default function MapScreen() {
         overallScore: place?.overall_score ?? undefined,
       }
     })
-  }, [activeDrillDownCountry, drillDownCityData, getPlacesByCountry])
+  }, [activeDrillDownCountry, activeCategory, drillDownCityData, getPlacesByCountry, places])
 
   return (
     <View style={styles.container}>
@@ -251,7 +261,7 @@ export default function MapScreen() {
       {/* Search icon — top right */}
       {!activeDrillDownCountry && (
         <View style={styles.topRight} pointerEvents="box-none">
-          <SearchBar onSearch={handleSearch} />
+          <SearchBar onSearch={handleSearch} onCountrySelect={handleCountryPress} />
         </View>
       )}
 
@@ -259,9 +269,7 @@ export default function MapScreen() {
       {!activeDrillDownCountry && (
         <View style={styles.bottomLeft} pointerEvents="box-none">
           <View style={styles.statChip}>
-            <Text style={styles.statText}>
-              {totalVisited} countries visited
-            </Text>
+            <Text style={styles.statText}>{statLabel}</Text>
           </View>
         </View>
       )}
@@ -271,7 +279,8 @@ export default function MapScreen() {
         <RatingForm
           cityName={drillDownCityData.find((c) => c.id === activeDrillDownCity)?.name ?? '...'}
           countryCode={activeDrillDownCountry}
-          onSubmit={(r, rv, cat) => { void handleRatingSubmit(r, rv, cat) }}
+          category={activeCategory}
+          onSubmit={(r, rv) => { void handleRatingSubmit(r, rv) }}
           onDismiss={handleRatingDismiss}
         />
       )}
@@ -301,7 +310,7 @@ const styles = StyleSheet.create({
   },
   bottomLeft: {
     position: 'absolute',
-    bottom: spacing.xxl + spacing.xxxl,
+    bottom: spacing.md,
     left: spacing.md,
     zIndex: 10,
   },

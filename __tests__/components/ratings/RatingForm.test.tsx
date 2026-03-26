@@ -37,6 +37,7 @@ jest.mock('@services/ratings', () => ({
 const defaultProps = {
   cityName: 'Tokyo',
   countryCode: 'JP',
+  category: 'been' as const,
   onSubmit: jest.fn(),
   onDismiss: jest.fn(),
 }
@@ -59,39 +60,24 @@ describe('RatingForm', () => {
       })
     })
 
-    it('renders Save Rating button', () => {
+    it('renders Save button', () => {
       const { getByText } = render(<RatingForm {...defaultProps} />)
-      expect(getByText('Save Rating')).toBeTruthy()
-    })
-
-    it('renders Dismiss button', () => {
-      const { getByText } = render(<RatingForm {...defaultProps} />)
-      expect(getByText('Dismiss')).toBeTruthy()
+      expect(getByText('Save')).toBeTruthy()
     })
 
     it('renders progress indicator text', () => {
       const { getByText } = render(<RatingForm {...defaultProps} />)
-      expect(getByText(/0\/10 categories rated/)).toBeTruthy()
+      expect(getByText(/All ratings optional/)).toBeTruthy()
     })
   })
 
   describe('Interaction', () => {
-    it('calls onDismiss when Dismiss is pressed', () => {
-      const onDismiss = jest.fn()
-      const { getByText } = render(
-        <RatingForm {...defaultProps} onDismiss={onDismiss} />,
-      )
-      fireEvent.press(getByText('Dismiss'))
-      // onDismiss fires after spring animation — mock timer
-      jest.runAllTimers?.()
-    })
-
-    it('calls onSubmit when Save Rating is pressed', () => {
+    it('calls onSubmit when Save is pressed', () => {
       const onSubmit = jest.fn()
       const { getByText } = render(
         <RatingForm {...defaultProps} onSubmit={onSubmit} />,
       )
-      fireEvent.press(getByText('Save Rating'))
+      fireEvent.press(getByText('Save'))
       expect(onSubmit).toHaveBeenCalledTimes(1)
     })
 

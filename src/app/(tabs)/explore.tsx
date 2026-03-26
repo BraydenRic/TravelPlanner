@@ -59,21 +59,20 @@ export default function ExploreScreen() {
   }, [])
 
   const renderCountryItem = useCallback(
-    ({ item: country, index }: { item: typeof COUNTRIES[number]; index: number }) => {
+    ({ item: country }: { item: typeof COUNTRIES[number] }) => {
       const visitStatus = visitedMap.get(country.code)
-      // Asymmetric sizing: alternate tall and short cards
-      const isTall = index % 3 === 0
-
       return (
         <Pressable
           key={country.code}
           onPress={() => handleCountryPress(country.code)}
-          style={[styles.countryCard, isTall && styles.countryCardTall]}
+          style={styles.countryCard}
           accessibilityRole="button"
           accessibilityLabel={country.name}
         >
           <View style={styles.cardInner}>
-            <Text style={styles.cardFlag}>{country.flag}</Text>
+            <View style={styles.codeBox}>
+              <Text style={styles.codeText}>{country.code}</Text>
+            </View>
             <View style={styles.cardMeta}>
               <Text style={styles.cardName} numberOfLines={1}>
                 {country.name}
@@ -98,7 +97,7 @@ export default function ExploreScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Explore</Text>
-        <SearchBar onSearch={handleSearch} placeholder="Search countries..." />
+        <SearchBar onSearch={handleSearch} onCountrySelect={handleCountryPress} placeholder="Search countries..." />
       </View>
 
       {/* Continent filter */}
@@ -187,7 +186,7 @@ const styles = StyleSheet.create({
   },
   continentLabel: {
     fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.base,
     color: colors.textSecondary,
   },
   continentLabelActive: {
@@ -205,31 +204,41 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: spacing.sm,
   },
-  countryCardTall: {
-    // Asymmetric — no extra styling needed on mobile list view
-  },
   cardInner: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.md,
     gap: spacing.md,
-    minHeight: 64,
+    minHeight: 68,
   },
-  cardFlag: {
-    fontSize: 32,
+  codeBox: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(0,245,212,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,245,212,0.20)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  codeText: {
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.sm,
+    color: colors.accentTeal,
+    letterSpacing: 1,
   },
   cardMeta: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
   cardName: {
     fontFamily: fontFamily.semibold,
-    fontSize: fontSize.base,
+    fontSize: fontSize.md,
     color: colors.textPrimary,
   },
   cardContinent: {
     fontFamily: fontFamily.body,
-    fontSize: fontSize.xs,
+    fontSize: fontSize.sm,
     color: colors.textTertiary,
   },
   cardBadge: {

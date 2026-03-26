@@ -81,15 +81,11 @@ function CityRow({ item, index, onPress, onDotPress }: CityRowProps) {
 
   return (
     <Animated.View style={[styles.cityListItem, animStyle]}>
-      <Pressable
-        onPress={handlePress}
-        style={styles.cityRow}
-        accessibilityRole="button"
-      >
+      <View style={styles.cityRow}>
         <Pressable
           style={styles.cityDot}
           onPress={handleDotPress}
-          hitSlop={10}
+          hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel={item.isVisited ? 'Change visit type' : 'Mark as visited'}
         >
@@ -109,21 +105,27 @@ function CityRow({ item, index, onPress, onDotPress }: CityRowProps) {
             ]}
           />
         </Pressable>
-        <View style={styles.cityInfo}>
-          <Text style={styles.cityName}>{item.city.name}</Text>
-          {item.city.is_capital && (
-            <Text style={styles.capitalTag}>Capital</Text>
-          )}
-        </View>
-        <View style={styles.cityRight}>
-          {item.category && <CategoryBadge category={item.category} />}
-          {item.overallScore !== undefined && (
-            <Text style={styles.cityScore}>
-              {item.overallScore.toFixed(1)}★
-            </Text>
-          )}
-        </View>
-      </Pressable>
+        <Pressable
+          onPress={handlePress}
+          style={styles.cityRowMain}
+          accessibilityRole="button"
+        >
+          <View style={styles.cityInfo}>
+            <Text style={styles.cityName}>{item.city.name}</Text>
+            {item.city.is_capital && (
+              <Text style={styles.capitalTag}>Capital</Text>
+            )}
+          </View>
+          <View style={styles.cityRight}>
+            {item.category && <CategoryBadge category={item.category} />}
+            {item.overallScore !== undefined && (
+              <Text style={styles.cityScore}>
+                {item.overallScore.toFixed(1)}★
+              </Text>
+            )}
+          </View>
+        </Pressable>
+      </View>
     </Animated.View>
   )
 }
@@ -192,7 +194,6 @@ function CountryDrillDownInner({
 
       {/* Country header */}
       <View style={styles.countryHeader}>
-        <Text style={styles.countryFlag}>{country?.flag}</Text>
         <View>
           <Text style={styles.countryName}>{country?.name}</Text>
           <Text style={styles.citiesSubtitle}>
@@ -254,9 +255,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.glassBorder,
   },
-  countryFlag: {
-    fontSize: 48,
-  },
   countryName: {
     fontFamily: fontFamily.heading,
     fontSize: fontSize['3xl'],
@@ -280,11 +278,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.smmd,
     borderBottomWidth: 1,
     borderBottomColor: colors.glassBorder,
-    gap: spacing.sm,
     minHeight: 56,
+  },
+  cityRowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.smmd,
+    gap: spacing.sm,
   },
   cityDot: {
     width: 24,

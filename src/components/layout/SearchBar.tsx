@@ -30,6 +30,7 @@ import type { CountryEntry } from '@constants/countries'
 
 interface SearchBarProps {
   onSearch: (query: string) => void
+  onCountrySelect?: (code: string) => void
   placeholder?: string
   style?: object
 }
@@ -39,6 +40,7 @@ const COLLAPSED_WIDTH = 44
 
 function SearchBarInner({
   onSearch,
+  onCountrySelect,
   placeholder = 'Search countries...',
 }: SearchBarProps) {
   const [expanded, setExpanded] = useState(false)
@@ -92,12 +94,15 @@ function SearchBarInner({
       return (
         <Pressable
           onPress={() => {
+            onCountrySelect?.(item.code)
             onSearch(item.name)
             collapse()
           }}
           style={styles.resultItem}
         >
-          <Text style={styles.resultFlag}>{item.flag}</Text>
+          <View style={styles.resultCodeBox}>
+            <Text style={styles.resultCode}>{item.code}</Text>
+          </View>
           <Text style={styles.resultName}>
             {matchIndex >= 0 ? (
               <>
@@ -114,7 +119,7 @@ function SearchBarInner({
         </Pressable>
       )
     },
-    [query, onSearch, collapse],
+    [query, onSearch, onCountrySelect, collapse],
   )
 
   return (
@@ -253,8 +258,21 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.glassBorder,
     minHeight: 44,
   },
-  resultFlag: {
-    fontSize: 18,
+  resultCodeBox: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.sm,
+    backgroundColor: 'rgba(0,245,212,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,245,212,0.20)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultCode: {
+    fontFamily: fontFamily.mono,
+    fontSize: fontSize.xs,
+    color: colors.accentTeal,
+    letterSpacing: 0.8,
   },
   resultName: {
     fontFamily: fontFamily.body,

@@ -45,9 +45,9 @@ function getCountryFill(
   switch (activeCategory) {
     case 'been':
       return `rgba(0,245,212,${opacity.toFixed(2)})`
-    case 'lived':
-      return `rgba(167,139,250,0.8)`
     case 'want_to_go':
+      return `rgba(167,139,250,0.8)`
+    case 'lived':
       return `rgba(245,166,35,0.6)`
     default:
       return `rgba(0,245,212,${opacity.toFixed(2)})`
@@ -102,8 +102,8 @@ if (Platform.OS === 'web') {
         style={{
           default: {
             fill,
-            stroke: colors.mapBorder,
-            strokeWidth: 0.4,
+            stroke: 'rgba(255,255,255,0.30)',
+            strokeWidth: 0.6,
             outline: 'none',
             cursor: 'pointer',
             transition: 'fill 200ms',
@@ -142,7 +142,7 @@ if (Platform.OS === 'web') {
       <View style={styles.container} pointerEvents="auto" data-testid={testID}>
         <ComposableMap
           projection="geoNaturalEarth1"
-          projectionConfig={{ scale: 160 }}
+          projectionConfig={{ scale: 160, center: [0, 10] }}
           style={{ width: '100%', height: '100%', backgroundColor: colors.mapOcean, pointerEvents: 'auto' }}
         >
           <ZoomableGroup

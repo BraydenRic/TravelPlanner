@@ -8,10 +8,10 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { RatingForm } from '@components/ratings/RatingForm'
 import { getCityById } from '@services/places'
 import { colors } from '@theme/colors'
-import type { City } from '@typedefs/database'
+import type { City, PlaceCategory } from '@typedefs/database'
 
 export default function RateScreen() {
-  const { code, cityId } = useLocalSearchParams<{ code: string; cityId: string }>()
+  const { code, cityId, category } = useLocalSearchParams<{ code: string; cityId: string; category?: string }>()
   const [city, setCity] = useState<City | null>(null)
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function RateScreen() {
   }, [cityId])
 
   const handleSubmit = useCallback(
-    (_ratings: Record<string, number>, _review: string, _category: string) => {
+    (_ratings: Record<string, number>, _review: string) => {
       router.back()
     },
     [],
@@ -34,6 +34,7 @@ export default function RateScreen() {
       <RatingForm
         cityName={city?.name ?? '...'}
         countryCode={code}
+        category={(category as PlaceCategory) ?? 'been'}
         onSubmit={handleSubmit}
         onDismiss={handleDismiss}
       />

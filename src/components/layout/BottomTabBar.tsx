@@ -16,6 +16,7 @@ import { colors } from '@theme/colors'
 import { borderRadius, spacing } from '@theme/spacing'
 import { fontFamily } from '@theme/typography'
 import { springs } from '@theme/animations'
+import { useUIStore } from '@stores/uiStore'
 
 interface TabBarProps {
   state: {
@@ -58,7 +59,7 @@ interface TabIconProps {
   size?: number
 }
 
-function TabIcon({ routeName, isActive, size = 22 }: TabIconProps) {
+function TabIcon({ routeName, isActive, size = 26 }: TabIconProps) {
   const iconKey = Object.keys(TAB_ROUTE_MAP).find((k) =>
     routeName.toLowerCase().includes(k),
   ) ?? 'map'
@@ -80,6 +81,9 @@ function TabIcon({ routeName, isActive, size = 22 }: TabIconProps) {
 }
 
 function BottomTabBarInner({ state, descriptors, navigation }: TabBarProps) {
+  const activeDrillDownCity = useUIStore((s) => s.activeDrillDownCity)
+  if (activeDrillDownCity) return null
+
   return (
     <View style={styles.outerContainer} pointerEvents="box-none">
       <View style={styles.pill}>
@@ -197,21 +201,21 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   tabItem: {
-    minWidth: 48,
-    minHeight: 44,
+    minWidth: 60,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   tabContent: {
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
   },
   tabLabel: {
     fontFamily: fontFamily.medium,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.50)',
-    letterSpacing: 0.3,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
+    letterSpacing: 0.2,
   },
   activeLabel: {
     color: colors.accentTeal,
