@@ -7,24 +7,35 @@ import { useEffect } from 'react'
 import { supabase } from '@lib/supabase'
 import { useAuthStore } from '@stores/authStore'
 import { ErrorBoundary } from '@lib/errorBoundary'
+import { getProfile } from '@services/profiles'
 
 export default function RootLayout() {
-  const { setUser, setLoading } = useAuthStore()
+  const { setUser, setProfile, setLoading } = useAuthStore()
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data: { session } }) => {
+    void supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user ?? null)
+      if (session?.user) {
+        const profile = await getProfile(session.user.id).catch(() => null)
+        setProfile(profile)
+      }
       setLoading(false)
     })
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null)
+      if (session?.user) {
+        const profile = await getProfile(session.user.id).catch(() => null)
+        setProfile(profile)
+      } else {
+        setProfile(null)
+      }
     })
 
     return () => subscription.unsubscribe()
-  }, [setUser, setLoading])
+  }, [setUser, setProfile, setLoading])
 
   return (
     <ErrorBoundary>

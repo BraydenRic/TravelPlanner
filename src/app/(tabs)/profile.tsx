@@ -247,6 +247,9 @@ const styles = StyleSheet.create({
   content: {
     paddingTop: spacing.xxl + spacing.md,
     gap: spacing.xl,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
   profileHeader: {
     flexDirection: 'row',

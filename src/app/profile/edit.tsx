@@ -144,6 +144,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
     gap: spacing.lg,
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
   topNav: {
     paddingTop: spacing.xxl + spacing.md,
