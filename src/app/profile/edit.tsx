@@ -150,7 +150,9 @@ export default function EditProfileScreen() {
         )}
 
         <Pressable
-          onPress={() => { void signOut() }}
+          onPress={() => {
+            void signOut().then(() => router.replace('/(auth)/login')).catch(() => router.replace('/(auth)/login'))
+          }}
           style={styles.logoutBtn}
           accessibilityRole="button"
         >

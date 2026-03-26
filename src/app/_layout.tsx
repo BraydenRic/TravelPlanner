@@ -2,7 +2,7 @@
  * Root Layout — Wraps entire app with ErrorBoundary and auth listener.
  */
 
-import { Stack } from 'expo-router'
+import { Stack, router } from 'expo-router'
 import { useEffect } from 'react'
 import { supabase } from '@lib/supabase'
 import { useAuthStore } from '@stores/authStore'
@@ -31,6 +31,7 @@ export default function RootLayout() {
         setProfile(profile)
       } else {
         setProfile(null)
+        router.replace('/(auth)/login')
       }
     })
 

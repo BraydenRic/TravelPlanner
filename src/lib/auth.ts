@@ -15,64 +15,13 @@
 
 import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
-import { createClient } from '@supabase/supabase-js'
-import Constants from 'expo-constants'
 
-// ---------------------------------------------------------------------------
-// Environment configuration
-// ---------------------------------------------------------------------------
-// Values are injected at build time via app.config.ts / eas.json.
-// NEVER hardcode these — the anon key is safe to embed (it's public),
-// but the URL must not vary between environments without a build flag.
-
-const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl as string
-const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey as string
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error(
-    'Missing Supabase configuration. Ensure supabaseUrl and supabaseAnonKey ' +
-    'are set in app.config.ts extra field.'
-  )
-}
-
-// ---------------------------------------------------------------------------
-// SecureStore adapter
-// ---------------------------------------------------------------------------
-// Mitigates AS-01-A: Supabase sessions contain JWT refresh tokens.
-// Storing them in AsyncStorage (the default) writes them to an unencrypted
-// SQLite database readable on rooted/jailbroken devices.
-// expo-secure-store uses the OS Keychain (iOS) or EncryptedSharedPreferences
-// (Android), which are hardware-backed on modern devices.
-//
-// See THREAT_MODEL.md AS-08 (Client-Side Data Storage).
-
-// On web, let Supabase use its own default localStorage adapter (handles SSR).
-// On native, use SecureStore (hardware-backed keychain/keystore).
-const ExpoSecureStoreAdapter = Platform.OS !== 'web'
-  ? {
-      getItem: (key: string): Promise<string | null> =>
-        SecureStore.getItemAsync(key),
-      setItem: (key: string, value: string): Promise<void> =>
-        SecureStore.setItemAsync(key, value),
-      removeItem: (key: string): Promise<void> =>
-        SecureStore.deleteItemAsync(key),
-    }
-  : undefined
-
-// ---------------------------------------------------------------------------
-// Supabase client
-// ---------------------------------------------------------------------------
-// Single shared instance — import `supabase` wherever you need DB access.
-// The client automatically attaches the JWT from SecureStore to every request.
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    storage: ExpoSecureStoreAdapter,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: Platform.OS === 'web', // Web needs URL-based session detection for OAuth
-  },
-})
+// Use the single shared Supabase client — never create a second instance.
+// Two separate clients share the same SecureStore keys but maintain separate
+// in-memory state, so auth events (login/logout) fired on one client are
+// never received by listeners on the other.
+export { supabase } from '@lib/supabase'
+import { supabase } from '@lib/supabase'
 
 // ---------------------------------------------------------------------------
 // Google OAuth sign-in
