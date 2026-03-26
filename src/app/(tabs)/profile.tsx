@@ -57,8 +57,8 @@ function ContinentRing({
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
-      <Text style={[styles.continentRingLabel, visited > 0 && { color: colors.textSecondary }]}>
-        {continent.slice(0, 3)}
+      <Text style={[styles.continentRingLabel, visited > 0 && { color: colors.textSecondary }]} numberOfLines={2}>
+        {continent === 'North America' ? 'N. America' : continent === 'South America' ? 'S. America' : continent}
       </Text>
     </View>
   )
@@ -367,9 +367,10 @@ const styles = StyleSheet.create({
   },
   continentRingLabel: {
     fontFamily: fontFamily.body,
-    fontSize: 9,
+    fontSize: 10,
     color: colors.textTertiary,
     textAlign: 'center',
+    lineHeight: 13,
   },
   badgeRow: {
     gap: spacing.md,

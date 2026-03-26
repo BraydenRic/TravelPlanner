@@ -4,7 +4,6 @@
 
 import React, { useCallback, useState } from 'react'
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -28,6 +27,7 @@ export default function EditProfileScreen() {
   const { user, profile, setProfile } = useAuthStore()
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '')
   const [saving, setSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const handleBack = useCallback(() => {
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -35,14 +35,18 @@ export default function EditProfileScreen() {
   }, [])
 
   const handleSave = useCallback(async () => {
-    if (!user) return
+    setErrorMsg(null)
+    if (!user) {
+      setErrorMsg('You must be logged in to save.')
+      return
+    }
     const trimmed = displayName.trim()
     if (!trimmed) {
-      Alert.alert('Display name required', 'Please enter a display name.')
+      setErrorMsg('Display name is required.')
       return
     }
     if (trimmed.length > 30) {
-      Alert.alert('Too long', 'Display name must be 30 characters or less.')
+      setErrorMsg('Display name must be 30 characters or less.')
       return
     }
 
@@ -54,7 +58,7 @@ export default function EditProfileScreen() {
       router.back()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to save profile.'
-      Alert.alert('Error', msg)
+      setErrorMsg(msg)
     } finally {
       setSaving(false)
     }
@@ -130,6 +134,10 @@ export default function EditProfileScreen() {
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </SpringButton>
+
+        {errorMsg && (
+          <Text style={styles.errorText}>{errorMsg}</Text>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   )
@@ -260,5 +268,11 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     marginTop: spacing.sm,
+  },
+  errorText: {
+    fontFamily: fontFamily.body,
+    fontSize: fontSize.sm,
+    color: colors.accentCoral,
+    textAlign: 'center',
   },
 })

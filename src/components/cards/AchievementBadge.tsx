@@ -159,7 +159,7 @@ function AchievementBadgeInner({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    width: 80,
+    width: 90,
     gap: spacing.xs,
   },
   iconContainer: {
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fontFamily.medium,
-    fontSize: fontSize.xs,
+    fontSize: fontSize.sm,
     color: colors.textPrimary,
     textAlign: 'center',
   },
@@ -193,10 +193,10 @@ const styles = StyleSheet.create({
   },
   description: {
     fontFamily: fontFamily.body,
-    fontSize: 9,
+    fontSize: fontSize.xs,
     color: colors.textTertiary,
     textAlign: 'center',
-    lineHeight: 12,
+    lineHeight: 15,
   },
 })
 
