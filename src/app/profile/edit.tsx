@@ -17,6 +17,7 @@ import { router } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { useAuthStore } from '@stores/authStore'
 import { updateProfile } from '@services/profiles'
+import { signOut } from '@lib/auth'
 import { colors } from '@theme/colors'
 import { borderRadius, spacing } from '@theme/spacing'
 import { fontFamily, fontSize } from '@theme/typography'
@@ -138,6 +139,14 @@ export default function EditProfileScreen() {
         {errorMsg && (
           <Text style={styles.errorText}>{errorMsg}</Text>
         )}
+
+        <Pressable
+          onPress={() => { void signOut() }}
+          style={styles.logoutBtn}
+          accessibilityRole="button"
+        >
+          <Text style={styles.logoutText}>Log Out</Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   )
@@ -274,5 +283,15 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.accentCoral,
     textAlign: 'center',
+  },
+  logoutBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
+  },
+  logoutText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.base,
+    color: colors.accentCoral,
   },
 })
