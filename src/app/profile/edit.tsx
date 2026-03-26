@@ -286,11 +286,17 @@ const styles = StyleSheet.create({
   },
   logoutBtn: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: spacing.md,
     marginTop: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.accentCoral,
+    backgroundColor: 'rgba(255,107,107,0.08)',
+    minHeight: 52,
   },
   logoutText: {
-    fontFamily: fontFamily.medium,
+    fontFamily: fontFamily.semibold,
     fontSize: fontSize.base,
     color: colors.accentCoral,
   },
