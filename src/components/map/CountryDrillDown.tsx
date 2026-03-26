@@ -40,6 +40,7 @@ interface CountryDrillDownProps {
   countryCode: string
   cities: CityWithStatus[]
   onCityPress: (cityId: string) => void
+  onDotPress?: (cityId: string) => void
   onBackPress: () => void
   groupMode?: boolean
 }
@@ -48,9 +49,10 @@ interface CityRowProps {
   item: CityWithStatus
   index: number
   onPress: (cityId: string) => void
+  onDotPress?: (cityId: string) => void
 }
 
-function CityRow({ item, index, onPress }: CityRowProps) {
+function CityRow({ item, index, onPress, onDotPress }: CityRowProps) {
   const opacity = useSharedValue(0)
   const translateY = useSharedValue(8)
 
@@ -73,6 +75,10 @@ function CityRow({ item, index, onPress }: CityRowProps) {
     onPress(item.city.id)
   }, [onPress, item.city.id])
 
+  const handleDotPress = useCallback(() => {
+    onDotPress?.(item.city.id)
+  }, [onDotPress, item.city.id])
+
   return (
     <Animated.View style={[styles.cityListItem, animStyle]}>
       <Pressable
@@ -80,7 +86,13 @@ function CityRow({ item, index, onPress }: CityRowProps) {
         style={styles.cityRow}
         accessibilityRole="button"
       >
-        <View style={styles.cityDot}>
+        <Pressable
+          style={styles.cityDot}
+          onPress={handleDotPress}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={item.isVisited ? 'Change visit type' : 'Mark as visited'}
+        >
           <View
             style={[
               styles.dot,
@@ -96,7 +108,7 @@ function CityRow({ item, index, onPress }: CityRowProps) {
                 : styles.dotUnvisited,
             ]}
           />
-        </View>
+        </Pressable>
         <View style={styles.cityInfo}>
           <Text style={styles.cityName}>{item.city.name}</Text>
           {item.city.is_capital && (
@@ -120,6 +132,7 @@ function CountryDrillDownInner({
   countryCode,
   cities,
   onCityPress,
+  onDotPress,
   onBackPress,
   groupMode: _groupMode = false,
 }: CountryDrillDownProps) {
@@ -162,9 +175,9 @@ function CountryDrillDownInner({
 
   const renderCity = useCallback(
     ({ item, index }: { item: CityWithStatus; index: number }) => (
-      <CityRow item={item} index={index} onPress={handleCityPress} />
+      <CityRow item={item} index={index} onPress={handleCityPress} onDotPress={onDotPress} />
     ),
-    [handleCityPress],
+    [handleCityPress, onDotPress],
   )
 
   return (

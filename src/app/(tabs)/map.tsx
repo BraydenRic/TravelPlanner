@@ -18,23 +18,67 @@ import { CategoryTabs } from '@components/layout/CategoryTabs'
 import { SearchBar } from '@components/layout/SearchBar'
 import { RatingForm } from '@components/ratings/RatingForm'
 import { useMap } from '@hooks/useMap'
-import { getCitiesByCountry, createPlace, updatePlace, getPlaceByCountryAndCity } from '@services/places'
+import { getCitiesByCountry, createPlace, updatePlace, getPlaceByCountryAndCity, getPlaces } from '@services/places'
 import { upsertPlaceRatings } from '@services/ratings'
-import type { City, RatingCategory, PlaceCategory } from '@typedefs/database'
+import type { City, RatingCategory, PlaceCategory, VisitedPlace } from '@typedefs/database'
 import type { PlaceRatingsInput } from '@lib/validation'
+import type { CountryFillIntensity } from '@typedefs/api'
+
+// Build fill intensity from local places — no RPC needed, reactive
+function buildFillIntensity(places: VisitedPlace[]): CountryFillIntensity[] {
+  const grouped = new Map<string, number>()
+  for (const p of places) {
+    grouped.set(p.country_code, (grouped.get(p.country_code) ?? 0) + 1)
+  }
+  return Array.from(grouped.entries()).map(([country_code, count]) => ({
+    country_code,
+    cities_visited: count,
+    total_cities: count,
+    fill_ratio: Math.min(count / 5, 1),
+  }))
+}
+
+// Create a local (guest) VisitedPlace without a DB round-trip
+function makeLocalPlace(countryCode: string, cityId: string, category: PlaceCategory): VisitedPlace {
+  return {
+    id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    user_id: 'guest',
+    country_code: countryCode,
+    city_id: cityId,
+    category,
+    overall_score: null,
+    review: null,
+    visited_date: null,
+    planned_date: null,
+    planned_budget: null,
+    daily_budget: null,
+    currency_code: null,
+    notes: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+}
 
 export default function MapScreen() {
   const {
     activeDrillDownCountry,
     handleCountryPress,
-    fillIntensity,
     clearDrillDown,
   } = useMap()
 
   const { activeCategory, setActiveCategory, activeDrillDownCity, setDrillDown } = useUIStore()
-  const { places, getPlacesByCountry, addPlace, updatePlace: updatePlaceInStore } = usePlacesStore()
+  const { places, getPlacesByCountry, addPlace, updatePlace: updatePlaceInStore, setPlaces } = usePlacesStore()
   const { user } = useAuthStore()
   const [drillDownCityData, setDrillDownCityData] = useState<City[]>([])
+
+  // Load all places from DB when authenticated
+  useEffect(() => {
+    if (!user) return
+    void getPlaces(user.id, undefined, undefined, 500).then(({ data }) => setPlaces(data))
+  }, [user, setPlaces])
+
+  // Derive fill intensity from local store — updates immediately after any save
+  const fillIntensity = useMemo(() => buildFillIntensity(places), [places])
 
   const totalVisited = useMemo(
     () => new Set(places.filter((p) => p.category === 'been').map((p) => p.country_code)).size,
@@ -68,8 +112,12 @@ export default function MapScreen() {
   const handleRatingSubmit = useCallback(
     async (ratings: Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>>, review: string, category: PlaceCategory) => {
       if (!activeDrillDownCountry || !activeDrillDownCity) return
-      // Not signed in — close the form silently (no persistence)
+      // Guest mode — save locally so the UI responds
       if (!user) {
+        const existing = places.find(
+          (p) => p.country_code === activeDrillDownCountry && p.city_id === activeDrillDownCity,
+        )
+        if (!existing) addPlace(makeLocalPlace(activeDrillDownCountry, activeDrillDownCity, category))
         clearDrillDown()
         return
       }
@@ -109,7 +157,7 @@ export default function MapScreen() {
         Alert.alert('Error saving rating', msg)
       }
     },
-    [user, activeDrillDownCountry, activeDrillDownCity, addPlace, updatePlaceInStore, clearDrillDown],
+    [user, places, activeDrillDownCountry, activeDrillDownCity, addPlace, updatePlaceInStore, clearDrillDown],
   )
 
   const handleRatingDismiss = useCallback(() => {
@@ -117,6 +165,38 @@ export default function MapScreen() {
       setDrillDown(activeDrillDownCountry, undefined)
     }
   }, [activeDrillDownCountry, setDrillDown])
+
+  // Quick-mark a city without opening the full rating form
+  const handleDotPress = useCallback(
+    (cityId: string) => {
+      if (!activeDrillDownCountry) return
+      const existing = places.find(
+        (p) => p.country_code === activeDrillDownCountry && p.city_id === cityId,
+      )
+      if (!user) {
+        if (!existing) addPlace(makeLocalPlace(activeDrillDownCountry, cityId, activeCategory))
+        return
+      }
+      void (async () => {
+        try {
+          if (existing) {
+            const updated = await updatePlace(existing.id, user.id, { category: activeCategory })
+            updatePlaceInStore(updated)
+          } else {
+            const place = await createPlace(user.id, {
+              country_code: activeDrillDownCountry,
+              city_id: cityId,
+              category: activeCategory,
+            })
+            addPlace(place)
+          }
+        } catch {
+          // silently ignore quick-mark errors
+        }
+      })()
+    },
+    [activeDrillDownCountry, activeCategory, user, places, addPlace, updatePlaceInStore],
+  )
 
   const drillDownCities = useMemo(() => {
     if (!activeDrillDownCountry) return []
@@ -151,6 +231,7 @@ export default function MapScreen() {
           countryCode={activeDrillDownCountry}
           cities={drillDownCities}
           onCityPress={handleCityPress}
+          onDotPress={handleDotPress}
           onBackPress={clearDrillDown}
         />
       )}

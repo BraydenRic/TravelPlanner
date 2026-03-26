@@ -4,11 +4,9 @@
 
 import { useCallback } from 'react'
 import { useUIStore } from '@stores/uiStore'
-import { usePlacesStore } from '@stores/placesStore'
 
 export function useMap() {
   const { activeDrillDownCountry, setDrillDown, clearDrillDown } = useUIStore()
-  const { fillIntensity } = usePlacesStore()
 
   const handleCountryPress = useCallback(
     (countryCode: string) => {
@@ -24,7 +22,6 @@ export function useMap() {
   return {
     activeDrillDownCountry,
     handleCountryPress,
-    fillIntensity,
     clearDrillDown,
   }
 }
