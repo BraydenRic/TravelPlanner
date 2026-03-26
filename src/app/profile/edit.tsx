@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics'
 import { useAuthStore } from '@stores/authStore'
 import { updateProfile } from '@services/profiles'
 import { signOut } from '@lib/auth'
+import { supabase } from '@lib/supabase'
 import { colors } from '@theme/colors'
 import { borderRadius, spacing } from '@theme/spacing'
 import { fontFamily, fontSize } from '@theme/typography'
@@ -37,10 +38,18 @@ export default function EditProfileScreen() {
 
   const handleSave = useCallback(async () => {
     setErrorMsg(null)
-    if (!user) {
+
+    // Prefer store user, fall back to live session in case store is stale
+    let userId = user?.id
+    if (!userId) {
+      const { data: { session } } = await supabase.auth.getSession()
+      userId = session?.user?.id
+    }
+    if (!userId) {
       setErrorMsg('You must be logged in to save.')
       return
     }
+
     const trimmed = displayName.trim()
     if (!trimmed) {
       setErrorMsg('Display name is required.')
@@ -53,7 +62,7 @@ export default function EditProfileScreen() {
 
     setSaving(true)
     try {
-      const updated = await updateProfile(user.id, { display_name: trimmed })
+      const updated = await updateProfile(userId, { display_name: trimmed })
       setProfile(updated)
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
       router.back()
