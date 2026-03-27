@@ -7,14 +7,14 @@
 
 export const colors = {
   // Background layers (depth system)
-  bgL0: '#07080D', // Deepest background — page/screen fill
-  bgL1: '#0F1117', // Card backgrounds
-  bgL2: '#171923', // Elevated surfaces
-  bgL3: '#1E2235', // Active / selected states
+  bgL0: '#1A1D2E', // Deepest background — page/screen fill
+  bgL1: '#242837', // Card backgrounds
+  bgL2: '#2E3347', // Elevated surfaces
+  bgL3: '#383D55', // Active / selected states
 
   // Glass morphism
-  glass: 'rgba(15,17,23,0.72)',
-  glassBorder: 'rgba(255,255,255,0.06)',
+  glass: 'rgba(36,40,55,0.80)',
+  glassBorder: 'rgba(255,255,255,0.09)',
 
   // Text
   textPrimary: '#F0EDEA',
@@ -40,8 +40,8 @@ export const colors = {
   memberCoral: '#FF6B6B',
 
   // Map
-  mapOcean: '#0A0E1A',
-  mapLand: '#1E2235',
+  mapOcean: '#141729',
+  mapLand: '#2E3347',
   mapBorder: 'rgba(255,255,255,0.08)',
   mapVisited: '#00F5D4',
   mapWantToGo: '#F5A623',
