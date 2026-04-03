@@ -5,15 +5,14 @@
 import React, { useMemo } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router } from 'expo-router'
-import Svg, { Circle } from 'react-native-svg'
+import Svg, { Circle, Text as SvgText } from 'react-native-svg'
 import { useAuthStore } from '@stores/authStore'
 import { usePlacesStore } from '@stores/placesStore'
 import { useGroupStore } from '@stores/groupStore'
 import { colors } from '@theme/colors'
-import { spacing } from '@theme/spacing'
+import { borderRadius, spacing } from '@theme/spacing'
 import { fontFamily, fontSize } from '@theme/typography'
 import { AnimatedNumber } from '@components/ui/AnimatedNumber'
-import { GlassPanel } from '@components/ui/GlassPanel'
 import { AchievementBadge } from '@components/cards/AchievementBadge'
 import { COUNTRIES, CONTINENTS } from '@constants/countries'
 import type { BadgeType } from '@typedefs/database'
@@ -22,6 +21,15 @@ const ALL_BADGE_TYPES: BadgeType[] = [
   'first_stamp', 'continental', 'globe_trotter', 'critic',
   'squad_goals', 'home_away', 'city_explorer',
 ]
+
+const CONTINENT_SHORT: Record<string, string> = {
+  'Africa': 'Africa',
+  'Asia': 'Asia',
+  'Europe': 'Europe',
+  'North America': 'N. Am.',
+  'South America': 'S. Am.',
+  'Oceania': 'Oceania',
+}
 
 // Continent ring component
 function ContinentRing({
@@ -35,31 +43,74 @@ function ContinentRing({
   total: number
   color: string
 }) {
-  const size = 48
-  const r = (size - 6) / 2
+  const size = 72
+  const strokeWidth = 5
+  const r = (size - strokeWidth) / 2
   const circ = 2 * Math.PI * r
   const progress = total > 0 ? (visited / total) * circ : 0
+  const activeColor = visited > 0 ? color : colors.textTertiary
+  const label = CONTINENT_SHORT[continent] ?? continent
 
   return (
-    <View style={{ alignItems: 'center', gap: 4 }}>
+    <View style={styles.continentRingItem}>
       <Svg width={size} height={size}>
-        <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={3} />
         <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth={strokeWidth}
+        />
+        <Circle
+          cx={size / 2} cy={size / 2} r={r}
           fill="none"
-          stroke={visited > 0 ? color : colors.bgL3}
-          strokeWidth={3}
+          stroke={activeColor}
+          strokeWidth={strokeWidth}
           strokeDasharray={circ}
           strokeDashoffset={circ - progress}
           strokeLinecap="round"
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
+        <SvgText
+          x={size / 2}
+          y={size / 2 - 3}
+          textAnchor="middle"
+          fontSize="15"
+          fontWeight="bold"
+          fontFamily={fontFamily.mono}
+          fill={visited > 0 ? color : colors.textSecondary}
+        >
+          {visited}
+        </SvgText>
+        <SvgText
+          x={size / 2}
+          y={size / 2 + 12}
+          textAnchor="middle"
+          fontSize="11"
+          fontFamily={fontFamily.body}
+          fill={colors.textSecondary}
+        >
+          /{total}
+        </SvgText>
       </Svg>
-      <Text style={[styles.continentRingLabel, visited > 0 && { color: colors.textSecondary }]} numberOfLines={2}>
-        {continent === 'North America' ? 'N. America' : continent === 'South America' ? 'S. America' : continent}
+      <Text style={styles.continentRingLabel} numberOfLines={1}>
+        {label}
       </Text>
+    </View>
+  )
+}
+
+// Stat card (replaces GlassPanel for bento)
+function StatCard({
+  label,
+  children,
+  style,
+}: {
+  label: string
+  children: React.ReactNode
+  style?: object
+}) {
+  return (
+    <View style={[styles.statCard, style]}>
+      <Text style={styles.bentoLabel} numberOfLines={1}>{label}</Text>
+      {children}
     </View>
   )
 }
@@ -154,50 +205,44 @@ export default function ProfileScreen() {
       {/* Bento grid */}
       <View style={styles.bento}>
         {/* Large: countries */}
-        <GlassPanel style={[styles.bentoCard, styles.bentoLarge]}>
-          <Text style={styles.bentoLabel}>Countries</Text>
-          <AnimatedNumber
-            value={stats.countries}
-            style={styles.bentoBigNumber}
-          />
-        </GlassPanel>
+        <StatCard label="Countries Visited" style={styles.bentoLarge}>
+          <AnimatedNumber value={stats.countries} style={styles.bentoBigNumber} />
+        </StatCard>
 
-        {/* Medium: cities */}
-        <GlassPanel style={[styles.bentoCard, styles.bentoMedium]}>
-          <Text style={styles.bentoLabel}>Cities</Text>
-          <AnimatedNumber value={stats.cities} style={styles.bentoMedNumber} />
-        </GlassPanel>
+        {/* Row: cities + world % */}
+        <View style={styles.bentoRow}>
+          <StatCard label="Cities" style={styles.bentoHalf}>
+            <AnimatedNumber value={stats.cities} style={styles.bentoMedNumber} />
+          </StatCard>
+          <StatCard label="World %" style={styles.bentoHalf}>
+            <AnimatedNumber
+              value={stats.worldPct}
+              decimals={1}
+              suffix="%"
+              style={styles.bentoMedNumber}
+            />
+          </StatCard>
+        </View>
 
-        {/* Medium: world % */}
-        <GlassPanel style={[styles.bentoCard, styles.bentoMedium]}>
-          <Text style={styles.bentoLabel}>World %</Text>
-          <AnimatedNumber
-            value={stats.worldPct}
-            decimals={1}
-            suffix="%"
-            style={styles.bentoMedNumber}
-          />
-        </GlassPanel>
-
-        {/* Small: avg rating */}
-        <GlassPanel style={[styles.bentoCard, styles.bentoSmall]}>
-          <Text style={styles.bentoLabel}>Avg Rating</Text>
-          <AnimatedNumber
-            value={stats.avgRating}
-            decimals={1}
-            style={[styles.bentoMedNumber, { color: colors.accentAmber }]}
-          />
-        </GlassPanel>
-
-        {/* Small: continents */}
-        <GlassPanel style={[styles.bentoCard, styles.bentoSmall]}>
-          <Text style={styles.bentoLabel}>Continents</Text>
-          <AnimatedNumber
-            value={stats.continents.length}
-            style={[styles.bentoMedNumber, { color: colors.accentViolet }]}
-          />
-          <Text style={styles.bentoSubLabel}>/6</Text>
-        </GlassPanel>
+        {/* Row: avg rating + continents */}
+        <View style={styles.bentoRow}>
+          <StatCard label="Avg Rating" style={styles.bentoHalf}>
+            <AnimatedNumber
+              value={stats.avgRating}
+              decimals={1}
+              style={[styles.bentoMedNumber, { color: colors.accentAmber }]}
+            />
+          </StatCard>
+          <StatCard label="Continents" style={styles.bentoHalf}>
+            <View style={styles.bentoContRow}>
+              <AnimatedNumber
+                value={stats.continents.length}
+                style={[styles.bentoMedNumber, { color: colors.accentViolet }]}
+              />
+              <Text style={styles.bentoSubLabel}>/6</Text>
+            </View>
+          </StatCard>
+        </View>
       </View>
 
       {/* Continent rings */}
@@ -219,11 +264,7 @@ export default function ProfileScreen() {
       {/* Achievement badges */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Achievements</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.badgeRow}
-        >
+        <View style={styles.badgeGrid}>
           {ALL_BADGE_TYPES.map((bt) => (
             <AchievementBadge
               key={bt}
@@ -231,7 +272,7 @@ export default function ProfileScreen() {
               unlocked={false}
             />
           ))}
-        </ScrollView>
+        </View>
       </View>
 
       <View style={{ height: spacing.xxl + spacing.xxxl }} />
@@ -304,33 +345,40 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.textSecondary,
   },
+  // Bento
   bento: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
-  bentoCard: {
+  bentoRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  statCard: {
+    backgroundColor: colors.bgL2,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
     padding: spacing.md,
   },
   bentoLarge: {
-    width: '100%',
     minHeight: 96,
   },
-  bentoMedium: {
+  bentoHalf: {
     flex: 1,
     minHeight: 80,
   },
-  bentoSmall: {
-    flex: 1,
-    minHeight: 72,
+  bentoContRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
   },
   bentoLabel: {
     fontFamily: fontFamily.body,
     fontSize: fontSize.xs,
-    color: colors.textTertiary,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
     marginBottom: spacing.xs,
   },
   bentoBigNumber: {
@@ -347,9 +395,10 @@ const styles = StyleSheet.create({
   },
   bentoSubLabel: {
     fontFamily: fontFamily.mono,
-    fontSize: fontSize.sm,
-    color: colors.textTertiary,
+    fontSize: fontSize.md,
+    color: colors.textSecondary,
   },
+  // Sections
   section: {
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
@@ -360,20 +409,26 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: -0.2,
   },
+  // Continent rings
   continentRings: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
+  },
+  continentRingItem: {
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
   },
   continentRingLabel: {
-    fontFamily: fontFamily.body,
-    fontSize: 10,
-    color: colors.textTertiary,
+    fontFamily: fontFamily.medium,
+    fontSize: 11,
+    color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 13,
   },
-  badgeRow: {
+  // Achievements
+  badgeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
-    paddingBottom: spacing.sm,
   },
 })

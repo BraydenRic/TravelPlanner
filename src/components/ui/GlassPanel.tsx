@@ -22,8 +22,11 @@ function GlassPanelInner({
   intensity = 1,
   borderRadius: br = borderRadius.lg,
 }: GlassPanelProps) {
-  const bgOpacity = 0.72 * intensity
-  const backgroundColor = `rgba(15,17,23,${bgOpacity.toFixed(2)})`
+  // Use theme glass color, scaling opacity by intensity
+  // colors.glass is already an rgba string; for intensity < 1 we use bgL1 with reduced opacity
+  const backgroundColor = intensity >= 1
+    ? colors.glass
+    : `rgba(36,40,55,${(0.80 * intensity).toFixed(2)})`
 
   const webStyle = Platform.select({
     web: {

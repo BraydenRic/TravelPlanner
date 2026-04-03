@@ -99,8 +99,8 @@ function AchievementBadgeInner({
     opacity: opacity.value,
   }))
 
-  const iconColor = unlocked ? config.color : colors.textTertiary
-  const containerOpacity = unlocked ? 1 : 0.3
+  const iconColor = unlocked ? config.color : colors.textSecondary
+  const containerOpacity = unlocked ? 1 : 0.55
 
   return (
     <Animated.View style={[styles.container, style, animStyle]}>
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   lockedLabel: {
-    color: colors.textTertiary,
+    color: colors.textSecondary,
   },
   description: {
     fontFamily: fontFamily.body,
