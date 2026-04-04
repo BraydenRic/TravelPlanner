@@ -3,7 +3,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { usePlacesStore } from '@stores/placesStore'
@@ -95,6 +95,11 @@ export default function CountryDetailScreen() {
 
       {/* Hero section */}
       <View style={styles.hero}>
+        <Image
+          source={{ uri: `https://flagcdn.com/w80/${code.toLowerCase()}.png` }}
+          style={styles.heroFlag}
+          resizeMode="cover"
+        />
         <View style={styles.heroText}>
           <Text style={styles.countryName}>{country?.name ?? code}</Text>
           <Text style={styles.heroSub}>
@@ -198,6 +203,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
+  },
+  heroFlag: {
+    width: 56,
+    height: 40,
+    borderRadius: borderRadius.sm,
+    overflow: 'hidden',
   },
   heroText: {
     flex: 1,
