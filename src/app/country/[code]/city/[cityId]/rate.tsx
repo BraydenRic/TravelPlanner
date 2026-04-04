@@ -52,8 +52,12 @@ export default function RateScreen() {
   const handleSubmit = useCallback(
     async (ratings: Partial<PlaceRatingsInput>, review: string) => {
       setError(null)
+      // eslint-disable-next-line no-console
+      console.log('[RateScreen] handleSubmit called', { placeId, place: place?.id, userId: user?.id, ratings, review })
 
       if (!user || !place) {
+        // eslint-disable-next-line no-console
+        console.log('[RateScreen] missing user or place', { user: !!user, place: !!place, places: places.length })
         setError('Place not found. Please go back and try again.')
         return
       }
@@ -63,8 +67,13 @@ export default function RateScreen() {
           Object.entries(ratings).filter(([, v]) => (v as number) > 0),
         ) as Partial<PlaceRatingsInput>
 
+        // eslint-disable-next-line no-console
+        console.log('[RateScreen] ratingPayload', ratingPayload)
+
         if (Object.keys(ratingPayload).length > 0) {
-          await upsertPlaceRatings(place.id, user.id, ratingPayload)
+          const saved = await upsertPlaceRatings(place.id, user.id, ratingPayload)
+          // eslint-disable-next-line no-console
+          console.log('[RateScreen] upsert result', saved)
         }
 
         if (review.trim()) {
@@ -74,11 +83,13 @@ export default function RateScreen() {
 
         router.back()
       } catch (err) {
+        // eslint-disable-next-line no-console
+        console.log('[RateScreen] error', err)
         const msg = err instanceof Error ? err.message : 'Something went wrong.'
         setError(msg)
       }
     },
-    [user, place, updatePlaceInStore],
+    [user, place, places.length, placeId, updatePlaceInStore],
   )
 
   const handleDismiss = useCallback(() => {
