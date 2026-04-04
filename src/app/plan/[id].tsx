@@ -66,7 +66,11 @@ export default function PlanDetailScreen() {
 
   const handleBack = useCallback(() => {
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-    router.back()
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.replace('/(tabs)/groups')
+    }
   }, [])
 
   return (

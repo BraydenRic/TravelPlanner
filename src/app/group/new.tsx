@@ -41,7 +41,11 @@ export default function NewGroupScreen() {
   const [copied, setCopied] = useState(false)
 
   const handleBack = useCallback(() => {
-    router.back()
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.replace('/(tabs)/groups')
+    }
   }, [])
 
   const switchTab = useCallback((t: Tab) => {
@@ -136,7 +140,9 @@ export default function NewGroupScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.successEmoji}>🎉</Text>
+            <View style={styles.checkCircle}>
+              <Text style={styles.checkMark}>✓</Text>
+            </View>
             <Text style={styles.successTitle}>{createdName}</Text>
             <Text style={styles.successSubtitle}>Your group is ready. Share the invite code to add friends.</Text>
 
@@ -149,9 +155,11 @@ export default function NewGroupScreen() {
               <Text style={styles.expiryNote}>Expires in 7 days · Up to 4 members</Text>
             </View>
 
-            <Pressable style={styles.primaryBtn} onPress={handleOpenGroup}>
-              <Text style={styles.primaryBtnText}>Open Group →</Text>
-            </Pressable>
+            <View style={styles.successActions}>
+              <Pressable style={styles.primaryBtn} onPress={handleOpenGroup}>
+                <Text style={styles.primaryBtnText}>Open Group</Text>
+              </Pressable>
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -453,8 +461,22 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
     paddingTop: spacing.lg,
   },
-  successEmoji: {
-    fontSize: 64,
+  checkCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.accentTeal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkMark: {
+    fontSize: 36,
+    color: colors.bgL0,
+    fontFamily: fontFamily.semibold,
+  },
+  successActions: {
+    width: '100%',
+    maxWidth: MAX_WIDTH,
   },
   successTitle: {
     fontFamily: fontFamily.heading,

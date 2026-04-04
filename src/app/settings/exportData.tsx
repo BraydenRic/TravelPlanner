@@ -28,7 +28,11 @@ export default function ExportDataScreen() {
   const progressWidth = useSharedValue(0)
 
   const handleBack = useCallback(() => {
-    router.back()
+    if (router.canGoBack()) {
+      router.back()
+    } else {
+      router.replace('/(tabs)/profile')
+    }
   }, [])
 
   const handleExport = useCallback(() => {
