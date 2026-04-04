@@ -102,8 +102,8 @@ if (Platform.OS === 'web') {
         style={{
           default: {
             fill,
-            stroke: 'rgba(255,255,255,0.30)',
-            strokeWidth: 0.6,
+            stroke: 'rgba(255,255,255,0.55)',
+            strokeWidth: 0.9,
             outline: 'none',
             cursor: 'pointer',
             transition: 'fill 200ms',
