@@ -130,61 +130,33 @@ export async function getUserGroups(userId: string): Promise<Group[]> {
 // joinGroup
 // ---------------------------------------------------------------------------
 
-export async function joinGroup(userId: string, inviteCode: string): Promise<GroupMember> {
-  // Validate invite code format
+export async function joinGroup(_userId: string, inviteCode: string): Promise<GroupMember> {
   inviteCodeSchema.parse(inviteCode)
 
-  // Find group by invite code
-  const { data: group, error: groupError } = await supabase
-    .from('groups')
-    .select('id, name, created_by, invite_code, invite_expires_at, color_scheme, created_at')
-    .eq('invite_code', inviteCode)
-    .single()
+  // join_group_by_code RPC handles the lookup, validation, and insert atomically
+  // using SECURITY DEFINER to bypass RLS on the invite_code lookup.
+  const { data: groupId, error } = await supabase.rpc('join_group_by_code', {
+    p_invite_code: inviteCode,
+  })
 
-  if (groupError) throw handleSupabaseError(groupError)
-
-  const typedGroup = group as Group
-
-  // Check invite expiry
-  if (!typedGroup.invite_expires_at || new Date(typedGroup.invite_expires_at) < new Date()) {
-    throw new ApiError('INVITE_EXPIRED', 'This invite link has expired')
+  if (error) {
+    const msg = error.message ?? ''
+    if (msg.includes('invalid_invite_code')) throw new ApiError('NOT_FOUND', 'Invalid invite code.')
+    if (msg.includes('invite_expired')) throw new ApiError('INVITE_EXPIRED', 'This invite has expired.')
+    if (msg.includes('already_member')) throw new ApiError('VALIDATION_ERROR', 'You are already in this group.')
+    if (msg.includes('group_full')) throw new ApiError('GROUP_FULL', 'This group is full (max 4 members).')
+    throw handleSupabaseError(error)
   }
 
-  // Check existing members
-  const { data: existingMembers, error: membersError } = await supabase
+  // Fetch the newly created member row
+  const { data: member, error: memberError } = await supabase
     .from('group_members')
-    .select('id, user_id, color, joined_at')
-    .eq('group_id', typedGroup.id)
-
-  if (membersError) throw handleSupabaseError(membersError)
-
-  const members = (existingMembers ?? []) as { id: string; user_id: string; color: string; joined_at: string }[]
-
-  // Check if already a member
-  if (members.some((m) => m.user_id === userId)) {
-    throw new ApiError('VALIDATION_ERROR', 'You are already a member of this group')
-  }
-
-  // Check group is not full
-  if (members.length >= 4) {
-    throw new ApiError('GROUP_FULL', 'This group is full (max 4 members)')
-  }
-
-  // Assign next available color
-  const usedColors = members.map((m) => m.color as MemberColor)
-  const color = assignNextColor(usedColors)
-
-  const { data: member, error: insertError } = await supabase
-    .from('group_members')
-    .insert({
-      group_id: typedGroup.id,
-      user_id: userId,
-      color,
-    })
     .select('id, group_id, user_id, color, joined_at')
+    .eq('group_id', groupId as string)
+    .eq('user_id', (await supabase.auth.getUser()).data.user?.id ?? '')
     .single()
 
-  if (insertError) throw handleSupabaseError(insertError)
+  if (memberError) throw handleSupabaseError(memberError)
 
   return member as GroupMember
 }

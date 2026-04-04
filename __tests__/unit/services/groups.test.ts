@@ -144,77 +144,46 @@ describe('createGroup', () => {
 // ---------------------------------------------------------------------------
 
 describe('joinGroup', () => {
-  it('rejects an expired invite code', async () => {
-    const expiredGroup = createMockGroup({
-      invite_expires_at: new Date(Date.now() - 1000).toISOString(),
-    })
-    getMockFrom().mockReturnValue(mockChain({ data: expiredGroup, error: null }))
+  it('rejects invalid invite code format', async () => {
+    await expect(joinGroup('user-123', 'bad code!')).rejects.toThrow()
+  })
 
+  it('maps invite_expired RPC error to INVITE_EXPIRED ApiError', async () => {
+    getMockRpc().mockResolvedValueOnce({ data: null, error: { message: 'invite_expired' } })
     await expect(
-      joinGroup('user-456', 'abc123def456abc123def456abc123de'),
-    ).rejects.toBeInstanceOf(ApiError)
-
-    await expect(
-      joinGroup('user-456', 'abc123def456abc123def456abc123de'),
+      joinGroup('user-456', 'ABCD1234'),
     ).rejects.toMatchObject({ code: 'INVITE_EXPIRED' })
   })
 
-  it('rejects when group is full', async () => {
-    const group = createMockGroup()
-    const fullMembers = [
-      createMockGroupMember({ user_id: 'u1', color: '#00F5D4' }),
-      createMockGroupMember({ user_id: 'u2', color: '#F5A623' }),
-      createMockGroupMember({ user_id: 'u3', color: '#A78BFA' }),
-      createMockGroupMember({ user_id: 'u4', color: '#FF6B6B' }),
-    ]
-
-    getMockFrom()
-      .mockReturnValueOnce(mockChain({ data: group, error: null })) // find group
-      .mockReturnValueOnce(mockChain({ data: fullMembers, error: null })) // get members
-
+  it('maps invalid_invite_code RPC error to NOT_FOUND ApiError', async () => {
+    getMockRpc().mockResolvedValueOnce({ data: null, error: { message: 'invalid_invite_code' } })
     await expect(
-      joinGroup('user-456', 'abc123def456abc123def456abc123de'),
-    ).rejects.toBeInstanceOf(ApiError)
+      joinGroup('user-456', 'ABCD1234'),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' })
+  })
 
-    // Re-register mocks before the second call
-    getMockFrom()
-      .mockReturnValueOnce(mockChain({ data: group, error: null }))
-      .mockReturnValueOnce(mockChain({ data: fullMembers, error: null }))
-
+  it('maps already_member RPC error to VALIDATION_ERROR ApiError', async () => {
+    getMockRpc().mockResolvedValueOnce({ data: null, error: { message: 'already_member' } })
     await expect(
-      joinGroup('user-456', 'abc123def456abc123def456abc123de'),
+      joinGroup('user-456', 'ABCD1234'),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+  })
+
+  it('maps group_full RPC error to GROUP_FULL ApiError', async () => {
+    getMockRpc().mockResolvedValueOnce({ data: null, error: { message: 'group_full' } })
+    await expect(
+      joinGroup('user-456', 'ABCD1234'),
     ).rejects.toMatchObject({ code: 'GROUP_FULL' })
   })
 
-  it('rejects if user is already a member', async () => {
-    const group = createMockGroup()
-    const existingMember = createMockGroupMember({ user_id: 'user-123' })
-
-    getMockFrom()
-      .mockReturnValueOnce(mockChain({ data: group, error: null }))
-      .mockReturnValueOnce(mockChain({ data: [existingMember], error: null }))
-
-    await expect(
-      joinGroup('user-123', 'abc123def456abc123def456abc123de'),
-    ).rejects.toBeInstanceOf(ApiError)
-  })
-
-  it('rejects invalid invite code format', async () => {
-    await expect(joinGroup('user-123', 'not-a-valid-code')).rejects.toThrow()
-  })
-
-  it('adds member with next available color', async () => {
-    const group = createMockGroup()
-    const existingMembers = [createMockGroupMember({ user_id: 'u1', color: '#00F5D4' })]
+  it('returns the new member row on success', async () => {
     const newMember = createMockGroupMember({ user_id: 'user-456', color: '#F5A623' })
+    getMockRpc()
+      .mockResolvedValueOnce({ data: newMember.group_id, error: null }) // join_group_by_code
+    mockSupabase.auth.getUser = jest.fn().mockResolvedValue({ data: { user: { id: 'user-456' } } })
+    getMockFrom().mockReturnValueOnce(mockChain({ data: newMember, error: null })) // fetch member
 
-    getMockFrom()
-      .mockReturnValueOnce(mockChain({ data: group, error: null })) // find group
-      .mockReturnValueOnce(mockChain({ data: existingMembers, error: null })) // get members
-      .mockReturnValueOnce(mockChain({ data: newMember, error: null })) // insert member
-
-    const result = await joinGroup('user-456', 'abc123def456abc123def456abc123de')
-
+    const result = await joinGroup('user-456', 'ABCD1234')
     expect(result.color).toBe('#F5A623')
   })
 })
