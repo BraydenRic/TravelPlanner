@@ -7,7 +7,7 @@ import { StyleSheet, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { RatingForm } from '@components/ratings/RatingForm'
 import { getCityById, updatePlace } from '@services/places'
-import { upsertPlaceRatings, getPlaceRatings } from '@services/ratings'
+import { upsertPlaceRatings, getPlaceRatings, computeOverallScore } from '@services/ratings'
 import { usePlacesStore } from '@stores/placesStore'
 import { useAuthStore } from '@stores/authStore'
 import { colors } from '@theme/colors'
@@ -65,6 +65,11 @@ export default function RateScreen() {
 
         if (Object.keys(ratingPayload).length > 0) {
           await upsertPlaceRatings(place.id, user.id, ratingPayload)
+          const overall = computeOverallScore(ratingPayload)
+          if (overall !== null) {
+            const updatedPlace = await updatePlace(place.id, user.id, { overall_score: overall })
+            updatePlaceInStore(updatedPlace)
+          }
         }
 
         if (review.trim()) {

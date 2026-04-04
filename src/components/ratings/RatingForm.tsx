@@ -2,7 +2,7 @@
  * RatingForm — Full-screen rating form with back button.
  */
 
-import React, { memo, useCallback, useMemo, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Platform,
   Pressable,
@@ -117,6 +117,11 @@ function RatingFormInner({
 }: RatingFormProps) {
   const [ratings, setRatings] = useState<LocalRatings>(initialRatings)
   const [review, setReview] = useState('')
+
+  // Sync when initialRatings load asynchronously (e.g. from DB fetch after mount)
+  useEffect(() => {
+    if (Object.keys(initialRatings).length > 0) setRatings(initialRatings)
+  }, [initialRatings])
   const [showReview, setShowReview] = useState(false)
   const country = useMemo(() => getCountryByCode(countryCode), [countryCode])
   const scrollRef = useRef<ScrollView>(null)

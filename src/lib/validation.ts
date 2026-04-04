@@ -196,6 +196,7 @@ export const createPlaceSchema = z.object({
   daily_budget: budgetSchema,
   currency_code: currencyCodeSchema.optional().nullable(),
   notes: notesSchema,
+  overall_score: z.number().min(1).max(5).optional().nullable(),
 })
 
 /**

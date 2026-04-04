@@ -19,7 +19,7 @@ import { SearchBar } from '@components/layout/SearchBar'
 import { RatingForm } from '@components/ratings/RatingForm'
 import { useMap } from '@hooks/useMap'
 import { getCitiesByCountry, createPlace, updatePlace, deletePlace, getPlaceByCountryAndCity, getPlaces } from '@services/places'
-import { upsertPlaceRatings } from '@services/ratings'
+import { upsertPlaceRatings, getPlaceRatings, computeOverallScore } from '@services/ratings'
 import type { City, RatingCategory, PlaceCategory, VisitedPlace } from '@typedefs/database'
 import type { PlaceRatingsInput } from '@lib/validation'
 import type { CountryFillIntensity } from '@typedefs/api'
@@ -71,6 +71,7 @@ export default function MapScreen() {
   const { user } = useAuthStore()
   const [drillDownCityData, setDrillDownCityData] = useState<City[]>([])
   const [ratingFormError, setRatingFormError] = useState<string | null>(null)
+  const [mapInitialRatings, setMapInitialRatings] = useState<Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>>>({})
 
   // Load all places from DB when authenticated
   useEffect(() => {
@@ -114,6 +115,26 @@ export default function MapScreen() {
       .then(setDrillDownCityData)
       .catch(() => setDrillDownCityData([]))
   }, [activeDrillDownCountry])
+
+  // Pre-load existing ratings when the rating form opens for a city
+  useEffect(() => {
+    if (!activeDrillDownCity || !activeDrillDownCountry) {
+      setMapInitialRatings({})
+      return
+    }
+    const existing = places.find(
+      (p) => p.country_code === activeDrillDownCountry && p.city_id === activeDrillDownCity && p.category === activeCategory,
+    )
+    if (!existing) {
+      setMapInitialRatings({})
+      return
+    }
+    void getPlaceRatings(existing.id).then((rows) => {
+      const map: Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>> = {}
+      for (const r of rows) map[r.category] = r.score as unknown as 1 | 2 | 3 | 4 | 5
+      setMapInitialRatings(map)
+    }).catch(() => { setMapInitialRatings({}) })
+  }, [activeDrillDownCity, activeDrillDownCountry, activeCategory, places])
 
   const handleSearch = useCallback((_query: string) => {}, [])
 
@@ -159,6 +180,11 @@ export default function MapScreen() {
         ) as Partial<PlaceRatingsInput>
         if (Object.keys(ratingPayload).length > 0) {
           await upsertPlaceRatings(place.id, user.id, ratingPayload)
+          const overall = computeOverallScore(ratingPayload)
+          if (overall !== null) {
+            const updatedPlace = await updatePlace(place.id, user.id, { overall_score: overall })
+            updatePlaceInStore(updatedPlace)
+          }
         }
 
         clearDrillDown()
@@ -284,6 +310,7 @@ export default function MapScreen() {
           cityName={drillDownCityData.find((c) => c.id === activeDrillDownCity)?.name ?? '...'}
           countryCode={activeDrillDownCountry}
           category={activeCategory}
+          initialRatings={mapInitialRatings}
           error={ratingFormError}
           onSubmit={(r, rv) => { void handleRatingSubmit(r, rv) }}
           onDismiss={handleRatingDismiss}

@@ -9,6 +9,9 @@ import * as Haptics from 'expo-haptics'
 import { usePlacesStore } from '@stores/placesStore'
 import { useGroupStore } from '@stores/groupStore'
 import { getCitiesByCountry } from '@services/places'
+import { getCountryRatings } from '@services/ratings'
+import { useAuthStore } from '@stores/authStore'
+import type { CountryRatings } from '@typedefs/api'
 import type { City } from '@typedefs/database'
 import { colors } from '@theme/colors'
 import { borderRadius, spacing } from '@theme/spacing'
@@ -40,12 +43,20 @@ export default function CountryDetailScreen() {
   const country = getCountryByCode(code)
   const { places } = usePlacesStore()
   const { activeGroupId } = useGroupStore()
+  const { user } = useAuthStore()
   const [ratingView, setRatingView] = React.useState<'personal' | 'group' | 'compare'>('personal')
+  const [countryRatings, setCountryRatings] = useState<CountryRatings | null>(null)
 
   const [cities, setCities] = useState<City[]>([])
   useEffect(() => {
     if (code) void getCitiesByCountry(code).then(setCities).catch(() => {})
   }, [code])
+
+  useEffect(() => {
+    if (code && user) {
+      void getCountryRatings(code, user.id).then(setCountryRatings).catch(() => {})
+    }
+  }, [code, user])
   const cityNameMap = useMemo(() => {
     const m: Record<string, string> = {}
     for (const c of cities) m[c.id] = c.name
@@ -127,7 +138,7 @@ export default function CountryDetailScreen() {
             Based on {visitedCities.length} of {country?.totalCities ?? '?'} cities rated
           </Text>
         </View>
-        <GlobalRatingBadge score={overallScore ?? 0} size="large" />
+        <GlobalRatingBadge score={countryRatings?.overall_score ?? overallScore ?? 0} size="large" />
       </View>
 
       {/* Rating toggle (only if in group) */}
@@ -141,13 +152,13 @@ export default function CountryDetailScreen() {
       <View style={styles.chartSection}>
         <Text style={styles.sectionTitle}>Category Breakdown</Text>
         <View style={styles.radarCenter}>
-          <RatingRadarChart ratings={EMPTY_RATINGS} size={240} />
+          <RatingRadarChart ratings={countryRatings?.categories ?? EMPTY_RATINGS} size={240} />
         </View>
       </View>
 
       {/* Bar chart */}
       <View style={styles.barSection}>
-        <RatingBarChart ratings={{}} />
+        <RatingBarChart ratings={countryRatings?.categories ?? {}} />
       </View>
 
       {/* City list */}
