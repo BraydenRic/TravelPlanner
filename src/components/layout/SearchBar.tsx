@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
     height: 44,
     ...Platform.select({
-      web: { outlineWidth: 0 } as Record<string, unknown>,
+      web: { outline: 'none' } as Record<string, unknown>,
       default: {},
     }),
   },
