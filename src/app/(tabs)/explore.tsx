@@ -99,7 +99,7 @@ export default function ExploreScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Explore</Text>
-        <SearchBar onSearch={handleSearch} onCountrySelect={handleCountryPress} placeholder="Search countries..." />
+        <SearchBar onSearch={handleSearch} placeholder="Search countries..." />
       </View>
 
       {/* Continent filter */}

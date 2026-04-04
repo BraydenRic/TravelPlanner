@@ -173,8 +173,8 @@ function SearchBarInner({
         )}
       </Animated.View>
 
-      {/* Results dropdown */}
-      {expanded && results.length > 0 && (
+      {/* Results dropdown — only when a selection handler is provided (e.g. map, not explore) */}
+      {expanded && results.length > 0 && onCountrySelect && (
         <View style={styles.dropdown}>
           <FlashList
             data={results}
