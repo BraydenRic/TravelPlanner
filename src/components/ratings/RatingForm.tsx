@@ -153,7 +153,6 @@ function RatingFormInner({
         <GlassPanel style={styles.backBtn}>
           <Pressable onPress={handleBack} style={styles.backPressable}>
             <Text style={styles.backArrow}>←</Text>
-            <Text style={styles.backLabel}>{countryCode}</Text>
           </Pressable>
         </GlassPanel>
 
