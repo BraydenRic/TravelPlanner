@@ -3,7 +3,7 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react'
-import { Platform, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native'
+import { Image, Platform, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native'
 import { FlashList } from '@shopify/flash-list'
 import * as Haptics from 'expo-haptics'
 import { router } from 'expo-router'
@@ -70,9 +70,11 @@ export default function ExploreScreen() {
           accessibilityLabel={country.name}
         >
           <View style={styles.cardInner}>
-            <View style={styles.codeBox}>
-              <Text style={styles.codeText}>{country.code}</Text>
-            </View>
+            <Image
+              source={{ uri: `https://flagcdn.com/w80/${country.code.toLowerCase()}.png` }}
+              style={styles.flagImg}
+              resizeMode="cover"
+            />
             <View style={styles.cardMeta}>
               <Text style={styles.cardName} numberOfLines={1}>
                 {country.name}
@@ -211,21 +213,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     minHeight: 68,
   },
-  codeBox: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.md,
-    backgroundColor: 'rgba(0,245,212,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(0,245,212,0.20)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  codeText: {
-    fontFamily: fontFamily.mono,
-    fontSize: fontSize.sm,
-    color: colors.accentTeal,
-    letterSpacing: 1,
+  flagImg: {
+    width: 52,
+    height: 36,
+    borderRadius: borderRadius.sm,
+    overflow: 'hidden',
   },
   cardMeta: {
     flex: 1,
