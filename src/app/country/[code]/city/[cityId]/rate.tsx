@@ -14,6 +14,9 @@ import { colors } from '@theme/colors'
 import type { City, PlaceCategory, RatingCategory } from '@typedefs/database'
 import type { PlaceRatingsInput } from '@lib/validation'
 
+// eslint-disable-next-line no-console
+console.log('[rate.tsx] MODULE LOADED')
+
 export default function RateScreen() {
   const { code, cityId, category, placeId } = useLocalSearchParams<{
     code: string
@@ -104,7 +107,11 @@ export default function RateScreen() {
         category={(category as PlaceCategory) ?? place?.category ?? 'been'}
         initialRatings={initialRatings}
         error={error}
-        onSubmit={(ratings, review) => { void handleSubmit(ratings, review) }}
+        onSubmit={(ratings, review) => {
+          // eslint-disable-next-line no-console
+          console.log('[rate.tsx] onSubmit inline fired', { ratings, handleSubmitType: typeof handleSubmit })
+          void handleSubmit(ratings, review)
+        }}
         onDismiss={handleDismiss}
       />
     </View>
