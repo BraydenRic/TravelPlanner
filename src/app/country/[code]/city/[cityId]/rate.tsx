@@ -14,9 +14,6 @@ import { colors } from '@theme/colors'
 import type { City, PlaceCategory, RatingCategory } from '@typedefs/database'
 import type { PlaceRatingsInput } from '@lib/validation'
 
-// eslint-disable-next-line no-console
-console.log('[rate.tsx] MODULE LOADED')
-
 export default function RateScreen() {
   const { code, cityId, category, placeId } = useLocalSearchParams<{
     code: string
@@ -55,12 +52,8 @@ export default function RateScreen() {
   const handleSubmit = useCallback(
     async (ratings: Partial<PlaceRatingsInput>, review: string) => {
       setError(null)
-      // eslint-disable-next-line no-console
-      console.log('[RateScreen] handleSubmit called', { placeId, place: place?.id, userId: user?.id, ratings, review })
 
       if (!user || !place) {
-        // eslint-disable-next-line no-console
-        console.log('[RateScreen] missing user or place', { user: !!user, place: !!place, places: places.length })
         setError('Place not found. Please go back and try again.')
         return
       }
@@ -70,13 +63,8 @@ export default function RateScreen() {
           Object.entries(ratings).filter(([, v]) => (v as number) > 0),
         ) as Partial<PlaceRatingsInput>
 
-        // eslint-disable-next-line no-console
-        console.log('[RateScreen] ratingPayload', ratingPayload)
-
         if (Object.keys(ratingPayload).length > 0) {
-          const saved = await upsertPlaceRatings(place.id, user.id, ratingPayload)
-          // eslint-disable-next-line no-console
-          console.log('[RateScreen] upsert result', saved)
+          await upsertPlaceRatings(place.id, user.id, ratingPayload)
         }
 
         if (review.trim()) {
@@ -86,13 +74,11 @@ export default function RateScreen() {
 
         router.back()
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.log('[RateScreen] error', err)
         const msg = err instanceof Error ? err.message : 'Something went wrong.'
         setError(msg)
       }
     },
-    [user, place, places.length, placeId, updatePlaceInStore],
+    [user, place, updatePlaceInStore],
   )
 
   const handleDismiss = useCallback(() => {
@@ -107,11 +93,7 @@ export default function RateScreen() {
         category={(category as PlaceCategory) ?? place?.category ?? 'been'}
         initialRatings={initialRatings}
         error={error}
-        onSubmit={(ratings, review) => {
-          // eslint-disable-next-line no-console
-          console.log('[rate.tsx] onSubmit inline fired', { ratings, handleSubmitType: typeof handleSubmit })
-          void handleSubmit(ratings, review)
-        }}
+        onSubmit={(ratings, review) => { void handleSubmit(ratings, review) }}
         onDismiss={handleDismiss}
       />
     </View>

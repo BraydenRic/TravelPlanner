@@ -133,16 +133,12 @@ function RatingFormInner({
 
   const handleRatingChange = useCallback(
     (cat: RatingCategory, score: number) => {
-      // eslint-disable-next-line no-console
-      console.log('[RatingForm] star changed', cat, score)
       setRatings((prev) => ({ ...prev, [cat]: score as 1 | 2 | 3 | 4 | 5 }))
     },
     [],
   )
 
   const handleSubmit = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.log('[RatingForm] Save pressed, ratings:', ratings)
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     onSubmit(ratings, sanitizeReview(review))
   }, [ratings, review, onSubmit])

@@ -120,8 +120,6 @@ export default function MapScreen() {
   const handleRatingSubmit = useCallback(
     async (ratings: Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>>, review: string) => {
       setRatingFormError(null)
-      // eslint-disable-next-line no-console
-      console.log('[MapScreen] handleRatingSubmit', { country: activeDrillDownCountry, city: activeDrillDownCity, userId: user?.id, ratings })
 
       if (!activeDrillDownCountry || !activeDrillDownCity) return
       // Guest mode — save locally so the UI responds
@@ -137,8 +135,6 @@ export default function MapScreen() {
       try {
         // Check if a visited_place already exists for this country+city+category
         const existing = await getPlaceByCountryAndCity(user.id, activeDrillDownCountry, activeDrillDownCity)
-        // eslint-disable-next-line no-console
-        console.log('[MapScreen] existing place', existing)
 
         let place
         if (existing && existing.category === activeCategory) {
@@ -156,25 +152,17 @@ export default function MapScreen() {
           })
           addPlace(place)
         }
-        // eslint-disable-next-line no-console
-        console.log('[MapScreen] place saved', place.id)
 
         // Save the individual category ratings (skip zeroes)
         const ratingPayload = Object.fromEntries(
           Object.entries(ratings).filter(([, v]) => v && v > 0),
         ) as Partial<PlaceRatingsInput>
-        // eslint-disable-next-line no-console
-        console.log('[MapScreen] ratingPayload', ratingPayload)
         if (Object.keys(ratingPayload).length > 0) {
           await upsertPlaceRatings(place.id, user.id, ratingPayload)
-          // eslint-disable-next-line no-console
-          console.log('[MapScreen] ratings saved')
         }
 
         clearDrillDown()
       } catch (err) {
-        // eslint-disable-next-line no-console
-        console.log('[MapScreen] error', err)
         const msg = err instanceof Error ? err.message : 'Something went wrong.'
         setRatingFormError(msg)
       }
