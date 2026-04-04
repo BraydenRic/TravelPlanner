@@ -1,22 +1,19 @@
 /**
  * AnimatedNumber — springs from 0 to target value on mount/change.
- * Renders in JetBrains Mono (fallback: SpaceMono / Courier New).
+ * Uses useAnimatedReaction + runOnJS so the text renders on web and native.
  */
 
-import React, { memo, useEffect } from 'react'
+import React, { memo, useEffect, useState } from 'react'
 import { StyleProp, Text, TextStyle } from 'react-native'
-import Animated, {
+import {
   useSharedValue,
   withSpring,
-  useAnimatedProps,
+  useAnimatedReaction,
+  runOnJS,
 } from 'react-native-reanimated'
 import { springs } from '@theme/animations'
 import { colors } from '@theme/colors'
 import { fontFamily } from '@theme/typography'
-
-// We use a custom text component approach with Reanimated
-// AnimatedText for smooth number interpolation
-const AnimatedText = Animated.createAnimatedComponent(Text)
 
 interface AnimatedNumberProps {
   value: number
@@ -25,8 +22,6 @@ interface AnimatedNumberProps {
   style?: StyleProp<TextStyle>
   /** Optional suffix appended after number, e.g., "%" */
   suffix?: string
-  /** Spring duration hint (ms) — controls stiffness indirectly */
-  duration?: number
 }
 
 function AnimatedNumberInner({
@@ -36,28 +31,25 @@ function AnimatedNumberInner({
   suffix = '',
 }: AnimatedNumberProps) {
   const animatedValue = useSharedValue(0)
+  const [displayed, setDisplayed] = useState(
+    decimals === 1 ? value.toFixed(1) : Math.round(value).toString(),
+  )
 
   useEffect(() => {
     animatedValue.value = withSpring(value, springs.standard)
   }, [value, animatedValue])
 
-  // We drive a JS-side counter via a worklet-driven listener approach.
-  // For simplicity and test compatibility, use a derived animated text.
-  const animatedProps = useAnimatedProps(() => {
-    const display = decimals === 1
-      ? animatedValue.value.toFixed(1)
-      : Math.round(animatedValue.value).toString()
-    return { text: `${display}${suffix}` } as { text: string }
-  })
-
-  const AT = AnimatedText as unknown as React.ComponentType<{
-    style?: StyleProp<TextStyle>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    animatedProps?: any
-  }>
+  useAnimatedReaction(
+    () => animatedValue.value,
+    (current) => {
+      const text =
+        decimals === 1 ? current.toFixed(1) : Math.round(current).toString()
+      runOnJS(setDisplayed)(text)
+    },
+  )
 
   return (
-    <AT
+    <Text
       style={[
         {
           fontFamily: fontFamily.mono,
@@ -65,8 +57,9 @@ function AnimatedNumberInner({
         },
         style,
       ]}
-      animatedProps={animatedProps}
-    />
+    >
+      {displayed}{suffix}
+    </Text>
   )
 }
 
