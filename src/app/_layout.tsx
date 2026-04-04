@@ -4,48 +4,46 @@
 
 import { Stack, router } from 'expo-router'
 import { useEffect } from 'react'
+import { useFonts } from 'expo-font'
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter'
+import { SpaceMono_400Regular } from '@expo-google-fonts/space-mono'
 import { supabase } from '@lib/supabase'
 import { useAuthStore } from '@stores/authStore'
 import { usePlacesStore } from '@stores/placesStore'
 import { ErrorBoundary } from '@lib/errorBoundary'
 import { getProfile } from '@services/profiles'
 import { getPlaces } from '@services/places'
-import type { Profile } from '@typedefs/database'
 import type { VisitedPlace } from '@typedefs/database'
 
-async function loadUserData(
-  userId: string,
-  setProfile: (p: Profile | null) => void,
-  setPlaces: (p: VisitedPlace[]) => void,
-) {
-  const [profile, placesResult] = await Promise.all([
-    getProfile(userId).catch(() => null),
-    getPlaces(userId, undefined, undefined, 500).catch(() => ({ data: [] as VisitedPlace[] })),
-  ])
-  setProfile(profile)
-  setPlaces(placesResult.data)
-}
-
 export default function RootLayout() {
-  const { setUser, setProfile, setLoading } = useAuthStore()
+  const { user, setUser, setProfile, setLoading } = useAuthStore()
   const { setPlaces } = usePlacesStore()
 
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    SpaceMono_400Regular,
+  })
+
+  // Auth state listener — sets user, only redirects on explicit sign-out
   useEffect(() => {
-    void supabase.auth.getSession().then(async ({ data: { session } }) => {
+    void supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
-      if (session?.user) {
-        await loadUserData(session.user.id, setProfile, setPlaces)
-      }
       setLoading(false)
     })
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user) {
-        await loadUserData(session.user.id, setProfile, setPlaces)
-      } else {
+      if (event === 'SIGNED_OUT') {
         setProfile(null)
         setPlaces([])
         router.replace('/(auth)/login')
@@ -54,6 +52,20 @@ export default function RootLayout() {
 
     return () => subscription.unsubscribe()
   }, [setUser, setProfile, setPlaces, setLoading])
+
+  // Load profile + places once user is known — runs after auth token is active
+  useEffect(() => {
+    if (!user) return
+    void Promise.all([
+      getProfile(user.id).catch(() => null),
+      getPlaces(user.id, undefined, undefined, 500).catch(() => ({ data: [] as VisitedPlace[] })),
+    ]).then(([profile, placesResult]) => {
+      setProfile(profile)
+      setPlaces(placesResult.data)
+    })
+  }, [user, setProfile, setPlaces])
+
+  if (!fontsLoaded) return null
 
   return (
     <ErrorBoundary>

@@ -18,8 +18,10 @@ import { COUNTRIES, CONTINENTS } from '@constants/countries'
 import type { BadgeType } from '@typedefs/database'
 
 const ALL_BADGE_TYPES: BadgeType[] = [
-  'first_stamp', 'continental', 'globe_trotter', 'critic',
-  'squad_goals', 'home_away', 'city_explorer',
+  'first_stamp', 'continental', 'globe_trotter',
+  'critic', 'squad_goals', 'home_away',
+  'city_explorer', 'wanderer', 'jet_setter',
+  'urban_explorer', 'curator', 'nomad',
 ]
 
 const CONTINENT_SHORT: Record<string, string> = {

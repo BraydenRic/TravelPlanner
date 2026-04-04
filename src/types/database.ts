@@ -190,7 +190,12 @@ export type BadgeType =
   | 'critic'
   | 'squad_goals'
   | 'home_away'
-  | 'city_explorer';
+  | 'city_explorer'
+  | 'wanderer'
+  | 'jet_setter'
+  | 'urban_explorer'
+  | 'curator'
+  | 'nomad';
 
 /**
  * A badge earned by a user.

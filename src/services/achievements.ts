@@ -56,6 +56,31 @@ export const BADGE_METADATA: Record<BadgeType, BadgeMetadata> = {
     description: 'Visited 5 or more cities in a single country.',
     icon: 'building-2',
   },
+  wanderer: {
+    label: 'Wanderer',
+    description: 'Visited 10 or more countries.',
+    icon: 'footprints',
+  },
+  jet_setter: {
+    label: 'Jet Setter',
+    description: 'Visited 25 or more countries.',
+    icon: 'plane',
+  },
+  urban_explorer: {
+    label: 'Urban Explorer',
+    description: 'Visited 50 or more cities.',
+    icon: 'map-pin',
+  },
+  curator: {
+    label: 'Curator',
+    description: 'Rated 50 or more visited places.',
+    icon: 'star-half',
+  },
+  nomad: {
+    label: 'Nomad',
+    description: 'Marked 3 or more countries as lived-in.',
+    icon: 'tent',
+  },
 }
 
 // ---------------------------------------------------------------------------

@@ -73,6 +73,36 @@ const BADGE_CONFIG: Record<
     iconPath: 'M3 21 L3 9 L7 9 L7 4 L17 4 L17 9 L21 9 L21 21 M9 21 V15 H15 V21 M9 9 H11 M13 9 H15 M9 12 H11 M13 12 H15',
     color: colors.accentTeal,
   },
+  wanderer: {
+    label: 'Wanderer',
+    description: 'Visit 10 countries',
+    iconPath: 'M3 12 C3 7 7 3 12 3 M21 12 C21 17 17 21 12 21 M12 3 C14.5 5 16 8 16 12 C16 16 14.5 19 12 21 M12 3 C9.5 5 8 8 8 12 C8 16 9.5 19 12 21 M3 12 L21 12 M5 7 L19 7 M5 17 L19 17',
+    color: colors.accentAmber,
+  },
+  jet_setter: {
+    label: 'Jet Setter',
+    description: 'Visit 25 countries',
+    iconPath: 'M21 16 L3 16 L7 8 L17 8 Z M12 8 L12 4 M9 8 L6 4 M15 8 L18 4 M3 20 L21 20',
+    color: colors.accentViolet,
+  },
+  urban_explorer: {
+    label: 'Urban Explorer',
+    description: 'Visit 50+ cities',
+    iconPath: 'M2 20 L22 20 M4 20 L4 10 L9 10 L9 20 M9 20 L9 6 L15 6 L15 20 M15 20 L15 10 L20 10 L20 20 M7 13 H6 M7 16 H6 M18 13 H17 M18 16 H17 M12 10 H11 M12 13 H11',
+    color: colors.accentCoral,
+  },
+  curator: {
+    label: 'Curator',
+    description: 'Rate 50 places',
+    iconPath: 'M11.049 2.927 C11.349 2.006 12.651 2.006 12.951 2.927 L14.5 7.64 L19.47 7.64 C20.438 7.64 20.84 8.874 20.061 9.44 L16.045 12.348 L17.594 17.061 C17.894 17.982 16.841 18.747 16.062 18.181 L12 15.273 L7.938 18.181 C7.159 18.747 6.106 17.982 6.406 17.061 L7.955 12.348 L3.939 9.44 C3.16 8.874 3.562 7.64 4.53 7.64 L9.5 7.64 Z',
+    color: colors.accentAmber,
+  },
+  nomad: {
+    label: 'Nomad',
+    description: 'Mark 3+ lived places',
+    iconPath: 'M20 9 V20 C20 20.6 19.6 21 19 21 H5 C4.4 21 4 20.6 4 20 V9 M22 9 L12 3 L2 9 M9 21 V14 H15 V21',
+    color: colors.accentTeal,
+  },
 }
 
 function AchievementBadgeInner({
