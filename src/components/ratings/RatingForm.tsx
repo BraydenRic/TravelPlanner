@@ -33,6 +33,7 @@ interface RatingFormProps {
   countryCode: string
   initialRatings?: LocalRatings
   category: PlaceCategory
+  error?: string | null
   onSubmit: (ratings: LocalRatings, review: string) => void
   onDismiss: () => void
 }
@@ -110,6 +111,7 @@ function RatingFormInner({
   countryCode,
   initialRatings = {},
   category,
+  error,
   onSubmit,
   onDismiss,
 }: RatingFormProps) {
@@ -148,6 +150,13 @@ function RatingFormInner({
 
   return (
     <View style={styles.container}>
+      {/* Error banner */}
+      {!!error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
       {/* Top nav */}
       <View style={styles.topNav}>
         <GlassPanel style={styles.backBtn}>
@@ -254,6 +263,19 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.bgL0,
     zIndex: 100,
+  },
+  // ── Error banner ──────────────────────────────────────────────────
+  errorBanner: {
+    backgroundColor: 'rgba(255,80,80,0.15)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,80,80,0.30)',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  errorText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: '#FF6B6B',
   },
   // ── Top nav ───────────────────────────────────────────────────────
   topNav: {

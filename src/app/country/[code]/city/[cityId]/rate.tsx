@@ -3,7 +3,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { RatingForm } from '@components/ratings/RatingForm'
 import { getCityById, updatePlace } from '@services/places'
@@ -11,8 +11,6 @@ import { upsertPlaceRatings, getPlaceRatings } from '@services/ratings'
 import { usePlacesStore } from '@stores/placesStore'
 import { useAuthStore } from '@stores/authStore'
 import { colors } from '@theme/colors'
-import { fontFamily, fontSize } from '@theme/typography'
-import { spacing } from '@theme/spacing'
 import type { City, PlaceCategory, RatingCategory } from '@typedefs/database'
 import type { PlaceRatingsInput } from '@lib/validation'
 
@@ -89,16 +87,12 @@ export default function RateScreen() {
 
   return (
     <View style={styles.container}>
-      {error && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
       <RatingForm
         cityName={city?.name ?? '...'}
         countryCode={code}
         category={(category as PlaceCategory) ?? place?.category ?? 'been'}
         initialRatings={initialRatings}
+        error={error}
         onSubmit={(ratings, review) => { void handleSubmit(ratings, review) }}
         onDismiss={handleDismiss}
       />
@@ -110,18 +104,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgL0,
-  },
-  errorBanner: {
-    backgroundColor: 'rgba(255,80,80,0.15)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,80,80,0.30)',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    zIndex: 10,
-  },
-  errorText: {
-    fontFamily: fontFamily.medium,
-    fontSize: fontSize.sm,
-    color: '#FF6B6B',
   },
 })
