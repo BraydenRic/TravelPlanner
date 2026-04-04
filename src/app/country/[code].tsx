@@ -2,12 +2,14 @@
  * Country detail page — hero, ratings, city list, timeline.
  */
 
-import React, { useCallback, useMemo } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { usePlacesStore } from '@stores/placesStore'
 import { useGroupStore } from '@stores/groupStore'
+import { getCitiesByCountry } from '@services/places'
+import type { City } from '@typedefs/database'
 import { colors } from '@theme/colors'
 import { borderRadius, spacing } from '@theme/spacing'
 import { fontFamily, fontSize } from '@theme/typography'
@@ -39,6 +41,16 @@ export default function CountryDetailScreen() {
   const { places } = usePlacesStore()
   const { activeGroupId } = useGroupStore()
   const [ratingView, setRatingView] = React.useState<'personal' | 'group' | 'compare'>('personal')
+
+  const [cities, setCities] = useState<City[]>([])
+  useEffect(() => {
+    if (code) void getCitiesByCountry(code).then(setCities).catch(() => {})
+  }, [code])
+  const cityNameMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const c of cities) m[c.id] = c.name
+    return m
+  }, [cities])
 
   const countryPlaces = useMemo(
     () => places.filter((p) => p.country_code === code),
@@ -126,7 +138,7 @@ export default function CountryDetailScreen() {
               accessibilityRole="button"
             >
               <View style={styles.cityInfo}>
-                <Text style={styles.cityName}>{p.city_id ?? 'City'}</Text>
+                <Text style={styles.cityName}>{p.city_id ? (cityNameMap[p.city_id] ?? p.city_id) : 'City'}</Text>
                 {p.visited_date && (
                   <Text style={styles.cityDate}>{formatDate(p.visited_date)}</Text>
                 )}

@@ -45,24 +45,30 @@ export default function RateScreen() {
       }
 
       try {
+        console.log('[rate] saving for place:', place.id, 'user:', user.id)
+
         // 1. Save individual category ratings (skip zeroes)
         const ratingPayload = Object.fromEntries(
           Object.entries(ratings).filter(([, v]) => (v as number) > 0),
         ) as Partial<PlaceRatingsInput>
 
+        console.log('[rate] ratingPayload:', ratingPayload)
+
         if (Object.keys(ratingPayload).length > 0) {
           await upsertPlaceRatings(place.id, user.id, ratingPayload)
+          console.log('[rate] ratings saved')
         }
 
-        // 2. Save review text only if provided (overall_score is not in the
-        //    updatePlace schema — the DB computes it via the ratings table)
+        // 2. Save review text only if provided
         if (review.trim()) {
           const updated = await updatePlace(place.id, user.id, { review })
           updatePlaceInStore(updated)
         }
 
+        console.log('[rate] done, going back')
         router.back()
       } catch (err) {
+        console.error('[rate] error:', err)
         const msg = err instanceof Error ? err.message : 'Something went wrong.'
         Alert.alert('Error saving rating', msg)
       }

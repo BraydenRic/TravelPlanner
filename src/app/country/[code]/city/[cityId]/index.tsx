@@ -4,7 +4,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { router, useLocalSearchParams } from 'expo-router'
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { usePlacesStore } from '@stores/placesStore'
 import { useAuthStore } from '@stores/authStore'
@@ -39,16 +39,18 @@ export default function CityDetailScreen() {
     [places, code, cityId],
   )
 
-  // Fetch real ratings when we have a place record and a logged-in user
-  useEffect(() => {
-    if (!place || !user) {
-      setPlaceRatings([])
-      return
-    }
-    void getPlaceRatings(place.id)
-      .then(setPlaceRatings)
-      .catch(() => setPlaceRatings([]))
-  }, [place, user])
+  // Re-fetch ratings every time this screen gains focus (including returning from rate screen)
+  useFocusEffect(
+    useCallback(() => {
+      if (!place || !user) {
+        setPlaceRatings([])
+        return
+      }
+      void getPlaceRatings(place.id)
+        .then(setPlaceRatings)
+        .catch(() => setPlaceRatings([]))
+    }, [place, user]),
+  )
 
   const ratingsMap = useMemo(() => {
     const map: Partial<Record<RatingCategory, number>> = {}
