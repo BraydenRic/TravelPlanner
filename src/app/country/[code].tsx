@@ -95,7 +95,6 @@ export default function CountryDetailScreen() {
 
       {/* Hero section */}
       <View style={styles.hero}>
-        <Text style={styles.heroFlag}>{country?.flag ?? '🌍'}</Text>
         <View style={styles.heroText}>
           <Text style={styles.countryName}>{country?.name ?? code}</Text>
           <Text style={styles.heroSub}>
@@ -199,9 +198,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
-  },
-  heroFlag: {
-    fontSize: 48,
   },
   heroText: {
     flex: 1,
