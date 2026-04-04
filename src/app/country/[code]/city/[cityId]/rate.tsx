@@ -3,15 +3,17 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, StyleSheet, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { RatingForm } from '@components/ratings/RatingForm'
 import { getCityById, updatePlace } from '@services/places'
-import { upsertPlaceRatings } from '@services/ratings'
+import { upsertPlaceRatings, getPlaceRatings } from '@services/ratings'
 import { usePlacesStore } from '@stores/placesStore'
 import { useAuthStore } from '@stores/authStore'
 import { colors } from '@theme/colors'
-import type { City, PlaceCategory } from '@typedefs/database'
+import { fontFamily, fontSize } from '@theme/typography'
+import { spacing } from '@theme/spacing'
+import type { City, PlaceCategory, RatingCategory } from '@typedefs/database'
 import type { PlaceRatingsInput } from '@lib/validation'
 
 export default function RateScreen() {
@@ -22,6 +24,8 @@ export default function RateScreen() {
     placeId?: string
   }>()
   const [city, setCity] = useState<City | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [initialRatings, setInitialRatings] = useState<Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>>>({})
   const { user } = useAuthStore()
   const { places, updatePlace: updatePlaceInStore } = usePlacesStore()
 
@@ -29,48 +33,51 @@ export default function RateScreen() {
     if (cityId) void getCityById(cityId).then(setCity)
   }, [cityId])
 
-  // Resolve the visited_place — prefer the passed placeId, fall back to
-  // searching by country + city in case placeId wasn't propagated
   const place = useMemo(
     () =>
       places.find((p) => (placeId ? p.id === placeId : p.country_code === code && p.city_id === cityId)),
     [places, placeId, code, cityId],
   )
 
+  // Pre-load existing ratings so the form shows current values
+  useEffect(() => {
+    if (!place) return
+    void getPlaceRatings(place.id).then((rows) => {
+      const map: Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>> = {}
+      for (const r of rows) {
+        map[r.category] = r.score as unknown as 1 | 2 | 3 | 4 | 5
+      }
+      setInitialRatings(map)
+    }).catch(() => {})
+  }, [place])
+
   const handleSubmit = useCallback(
     async (ratings: Partial<PlaceRatingsInput>, review: string) => {
+      setError(null)
+
       if (!user || !place) {
-        Alert.alert('Not ready', 'Place not found. Please go back and try again.')
+        setError('Place not found. Please go back and try again.')
         return
       }
 
       try {
-        console.log('[rate] saving for place:', place.id, 'user:', user.id)
-
-        // 1. Save individual category ratings (skip zeroes)
         const ratingPayload = Object.fromEntries(
           Object.entries(ratings).filter(([, v]) => (v as number) > 0),
         ) as Partial<PlaceRatingsInput>
 
-        console.log('[rate] ratingPayload:', ratingPayload)
-
         if (Object.keys(ratingPayload).length > 0) {
           await upsertPlaceRatings(place.id, user.id, ratingPayload)
-          console.log('[rate] ratings saved')
         }
 
-        // 2. Save review text only if provided
         if (review.trim()) {
           const updated = await updatePlace(place.id, user.id, { review })
           updatePlaceInStore(updated)
         }
 
-        console.log('[rate] done, going back')
         router.back()
       } catch (err) {
-        console.error('[rate] error:', err)
         const msg = err instanceof Error ? err.message : 'Something went wrong.'
-        Alert.alert('Error saving rating', msg)
+        setError(msg)
       }
     },
     [user, place, updatePlaceInStore],
@@ -82,10 +89,16 @@ export default function RateScreen() {
 
   return (
     <View style={styles.container}>
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
       <RatingForm
         cityName={city?.name ?? '...'}
         countryCode={code}
         category={(category as PlaceCategory) ?? place?.category ?? 'been'}
+        initialRatings={initialRatings}
         onSubmit={(ratings, review) => { void handleSubmit(ratings, review) }}
         onDismiss={handleDismiss}
       />
@@ -97,5 +110,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgL0,
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(255,80,80,0.15)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,80,80,0.30)',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    zIndex: 10,
+  },
+  errorText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: '#FF6B6B',
   },
 })
