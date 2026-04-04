@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { useUIStore } from '@stores/uiStore'
 import { usePlacesStore } from '@stores/placesStore'
 import { useAuthStore } from '@stores/authStore'
@@ -70,6 +70,7 @@ export default function MapScreen() {
   const { places, getPlacesByCountry, addPlace, updatePlace: updatePlaceInStore, removePlace, setPlaces } = usePlacesStore()
   const { user } = useAuthStore()
   const [drillDownCityData, setDrillDownCityData] = useState<City[]>([])
+  const [ratingFormError, setRatingFormError] = useState<string | null>(null)
 
   // Load all places from DB when authenticated
   useEffect(() => {
@@ -118,6 +119,10 @@ export default function MapScreen() {
 
   const handleRatingSubmit = useCallback(
     async (ratings: Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>>, review: string) => {
+      setRatingFormError(null)
+      // eslint-disable-next-line no-console
+      console.log('[MapScreen] handleRatingSubmit', { country: activeDrillDownCountry, city: activeDrillDownCity, userId: user?.id, ratings })
+
       if (!activeDrillDownCountry || !activeDrillDownCity) return
       // Guest mode — save locally so the UI responds
       if (!user) {
@@ -132,6 +137,8 @@ export default function MapScreen() {
       try {
         // Check if a visited_place already exists for this country+city+category
         const existing = await getPlaceByCountryAndCity(user.id, activeDrillDownCountry, activeDrillDownCity)
+        // eslint-disable-next-line no-console
+        console.log('[MapScreen] existing place', existing)
 
         let place
         if (existing && existing.category === activeCategory) {
@@ -149,25 +156,34 @@ export default function MapScreen() {
           })
           addPlace(place)
         }
+        // eslint-disable-next-line no-console
+        console.log('[MapScreen] place saved', place.id)
 
         // Save the individual category ratings (skip zeroes)
         const ratingPayload = Object.fromEntries(
           Object.entries(ratings).filter(([, v]) => v && v > 0),
         ) as Partial<PlaceRatingsInput>
+        // eslint-disable-next-line no-console
+        console.log('[MapScreen] ratingPayload', ratingPayload)
         if (Object.keys(ratingPayload).length > 0) {
           await upsertPlaceRatings(place.id, user.id, ratingPayload)
+          // eslint-disable-next-line no-console
+          console.log('[MapScreen] ratings saved')
         }
 
         clearDrillDown()
       } catch (err) {
+        // eslint-disable-next-line no-console
+        console.log('[MapScreen] error', err)
         const msg = err instanceof Error ? err.message : 'Something went wrong.'
-        Alert.alert('Error saving rating', msg)
+        setRatingFormError(msg)
       }
     },
     [user, places, activeCategory, activeDrillDownCountry, activeDrillDownCity, addPlace, updatePlaceInStore, clearDrillDown],
   )
 
   const handleRatingDismiss = useCallback(() => {
+    setRatingFormError(null)
     if (activeDrillDownCountry) setDrillDown(activeDrillDownCountry, undefined)
   }, [activeDrillDownCountry, setDrillDown])
 
@@ -280,6 +296,7 @@ export default function MapScreen() {
           cityName={drillDownCityData.find((c) => c.id === activeDrillDownCity)?.name ?? '...'}
           countryCode={activeDrillDownCountry}
           category={activeCategory}
+          error={ratingFormError}
           onSubmit={(r, rv) => { void handleRatingSubmit(r, rv) }}
           onDismiss={handleRatingDismiss}
         />
