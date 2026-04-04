@@ -70,20 +70,20 @@ function ContinentRing({
         />
         <SvgText
           x={size / 2}
-          y={size / 2 - 3}
+          y={size / 2 + 1}
           textAnchor="middle"
-          fontSize="15"
+          fontSize="18"
           fontWeight="bold"
           fontFamily={fontFamily.mono}
-          fill={visited > 0 ? color : colors.textSecondary}
+          fill={visited > 0 ? color : colors.textPrimary}
         >
           {visited}
         </SvgText>
         <SvgText
           x={size / 2}
-          y={size / 2 + 12}
+          y={size / 2 + 15}
           textAnchor="middle"
-          fontSize="11"
+          fontSize="12"
           fontFamily={fontFamily.body}
           fill={colors.textSecondary}
         >
