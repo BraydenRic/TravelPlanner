@@ -66,8 +66,10 @@ export default function CityDetailScreen() {
   }, [])
 
   const handleEditRating = useCallback(() => {
-    router.push(`/country/${code}/city/${cityId}/rate`)
-  }, [code, cityId])
+    const params = new URLSearchParams({ category: place?.category ?? 'been' })
+    if (place?.id) params.set('placeId', place.id)
+    router.push(`/country/${code}/city/${cityId}/rate?${params.toString()}`)
+  }, [code, cityId, place])
 
   const reviewText = place?.review ? sanitizeReview(place.review) : null
 
