@@ -279,12 +279,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.textPrimary,
   },
-  backLabel: {
-    fontFamily: fontFamily.semibold,
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-  },
   topNavRight: {
     alignItems: 'flex-end',
   },
