@@ -2,12 +2,12 @@
  * Rate screen — renders RatingForm for a specific city and saves to DB.
  */
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, StyleSheet, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { RatingForm } from '@components/ratings/RatingForm'
 import { getCityById, updatePlace } from '@services/places'
-import { upsertPlaceRatings, computeOverallScore } from '@services/ratings'
+import { upsertPlaceRatings } from '@services/ratings'
 import { usePlacesStore } from '@stores/placesStore'
 import { useAuthStore } from '@stores/authStore'
 import { colors } from '@theme/colors'
@@ -29,34 +29,37 @@ export default function RateScreen() {
     if (cityId) void getCityById(cityId).then(setCity)
   }, [cityId])
 
-  // Build initial ratings from existing place ratings in store if available
-  const place = places.find((p) => p.id === placeId)
+  // Resolve the visited_place — prefer the passed placeId, fall back to
+  // searching by country + city in case placeId wasn't propagated
+  const place = useMemo(
+    () =>
+      places.find((p) => (placeId ? p.id === placeId : p.country_code === code && p.city_id === cityId)),
+    [places, placeId, code, cityId],
+  )
 
   const handleSubmit = useCallback(
     async (ratings: Partial<PlaceRatingsInput>, review: string) => {
-      const targetPlaceId = placeId ?? place?.id
-      if (!user || !targetPlaceId) {
-        router.back()
+      if (!user || !place) {
+        Alert.alert('Not ready', 'Place not found. Please go back and try again.')
         return
       }
 
       try {
-        // Save category ratings
+        // 1. Save individual category ratings (skip zeroes)
         const ratingPayload = Object.fromEntries(
-          Object.entries(ratings).filter(([, v]) => v && (v as number) > 0),
+          Object.entries(ratings).filter(([, v]) => (v as number) > 0),
         ) as Partial<PlaceRatingsInput>
 
         if (Object.keys(ratingPayload).length > 0) {
-          await upsertPlaceRatings(targetPlaceId, user.id, ratingPayload)
+          await upsertPlaceRatings(place.id, user.id, ratingPayload)
         }
 
-        // Update review + overall_score on the place
-        const overall = computeOverallScore(ratingPayload)
-        const updated = await updatePlace(targetPlaceId, user.id, {
-          review: review || undefined,
-          ...(overall !== null ? { overall_score: overall } : {}),
-        })
-        updatePlaceInStore(updated)
+        // 2. Save review text only if provided (overall_score is not in the
+        //    updatePlace schema — the DB computes it via the ratings table)
+        if (review.trim()) {
+          const updated = await updatePlace(place.id, user.id, { review })
+          updatePlaceInStore(updated)
+        }
 
         router.back()
       } catch (err) {
@@ -64,7 +67,7 @@ export default function RateScreen() {
         Alert.alert('Error saving rating', msg)
       }
     },
-    [user, placeId, place, updatePlaceInStore],
+    [user, place, updatePlaceInStore],
   )
 
   const handleDismiss = useCallback(() => {
@@ -76,7 +79,7 @@ export default function RateScreen() {
       <RatingForm
         cityName={city?.name ?? '...'}
         countryCode={code}
-        category={(category as PlaceCategory) ?? 'been'}
+        category={(category as PlaceCategory) ?? place?.category ?? 'been'}
         onSubmit={(ratings, review) => { void handleSubmit(ratings, review) }}
         onDismiss={handleDismiss}
       />
