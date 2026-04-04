@@ -225,6 +225,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     paddingRight: spacing.md,
     height: 44,
+    ...Platform.select({
+      web: { outlineWidth: 0 } as Record<string, unknown>,
+      default: {},
+    }),
   },
   dropdown: {
     position: 'absolute',
