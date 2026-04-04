@@ -370,33 +370,37 @@ describe('budgetSchema', () => {
 // ---------------------------------------------------------------------------
 
 describe('inviteCodeSchema', () => {
-  it('accepts valid 32-char hex invite codes', () => {
+  it('accepts 8-char uppercase codes (new format)', () => {
+    expectValid(inviteCodeSchema, 'ABCD1234')
+    expectValid(inviteCodeSchema, 'FF00AA11')
+  })
+
+  it('accepts 32-char lowercase hex (legacy format)', () => {
     expectValid(inviteCodeSchema, 'a'.repeat(32))
     expectValid(inviteCodeSchema, '0123456789abcdef0123456789abcdef')
-    expectValid(inviteCodeSchema, 'f'.repeat(32))
   })
 
-  it('rejects codes shorter than 32 chars', () => {
-    expectInvalid(inviteCodeSchema, 'abc123', 'Invalid invite code')
-    expectInvalid(inviteCodeSchema, 'a'.repeat(31))
+  it('accepts mixed-case alphanumeric codes', () => {
+    expectValid(inviteCodeSchema, 'AbCd1234')
   })
 
-  it('rejects codes longer than 32 chars', () => {
-    expectInvalid(inviteCodeSchema, 'a'.repeat(33))
+  it('rejects codes shorter than 4 chars', () => {
+    expectInvalid(inviteCodeSchema, 'abc', 'Invalid invite code')
+    expectInvalid(inviteCodeSchema, '')
   })
 
-  it('rejects uppercase hex', () => {
-    expectInvalid(inviteCodeSchema, 'A'.repeat(32), 'Invalid invite code format')
+  it('rejects codes longer than 64 chars', () => {
+    expectInvalid(inviteCodeSchema, 'a'.repeat(65))
   })
 
-  it('rejects non-hex characters', () => {
-    expectInvalid(inviteCodeSchema, 'g'.repeat(32)) // 'g' is not hex
-    expectInvalid(inviteCodeSchema, 'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz')
+  it('rejects non-alphanumeric characters', () => {
+    expectInvalid(inviteCodeSchema, 'abcd-1234')
+    expectInvalid(inviteCodeSchema, 'abcd_1234')
   })
 
   it('rejects inject attempts in invite code field', () => {
     expectInvalid(inviteCodeSchema, "' OR 1=1; DROP TABLE groups; --")
-    expectInvalid(inviteCodeSchema, '<script>'.padEnd(32, 'a'))
+    expectInvalid(inviteCodeSchema, '<script>alert</script>')
   })
 })
 

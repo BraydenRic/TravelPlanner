@@ -24,6 +24,10 @@ function getMockFrom() {
   return mockSupabase.from as jest.Mock
 }
 
+function getMockRpc() {
+  return mockSupabase.rpc as jest.Mock
+}
+
 function mockChain(finalResult: { data: unknown; error: unknown }) {
   const resolved = Promise.resolve(finalResult)
   const chain = {
@@ -92,6 +96,7 @@ describe('createGroup', () => {
     getMockFrom()
       .mockReturnValueOnce(groupChain) // groups insert
       .mockReturnValueOnce(memberChain) // group_members insert
+    getMockRpc().mockResolvedValueOnce({ data: 'ABCD1234', error: null })
 
     const result = await createGroup('user-123', 'Travel Crew')
 
@@ -112,6 +117,7 @@ describe('createGroup', () => {
     getMockFrom()
       .mockReturnValueOnce(groupChain)
       .mockReturnValueOnce(memberChain)
+    getMockRpc().mockResolvedValueOnce({ data: 'ABCD1234', error: null })
 
     await createGroup('user-123', '<script>alert(1)</script>My Group')
 

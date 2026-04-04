@@ -36,24 +36,15 @@ export function assignNextColor(existingColors: MemberColor[]): MemberColor {
 // ---------------------------------------------------------------------------
 
 export async function createGroup(userId: string, name: string): Promise<Group> {
-  // Sanitize first, then validate the clean result
   const sanitizedName = sanitizeGroupName(name)
   groupNameSchema.parse(sanitizedName)
 
-  // Generate invite code (32 hex chars = 16 bytes entropy)
-  const inviteCode = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-
-  const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-
+  // Insert group without invite code — generate_invite_code RPC sets it
   const { data: group, error: groupError } = await supabase
     .from('groups')
     .insert({
       name: sanitizedName,
       created_by: userId,
-      invite_code: inviteCode,
-      invite_expires_at: inviteExpiresAt,
       color_scheme: {},
     })
     .select('id, name, created_by, invite_code, invite_expires_at, color_scheme, created_at')
@@ -61,16 +52,25 @@ export async function createGroup(userId: string, name: string): Promise<Group> 
 
   if (groupError) throw handleSupabaseError(groupError)
 
+  const typedGroup = group as Group
+
   // Add creator as first member with teal color
   const { error: memberError } = await supabase.from('group_members').insert({
-    group_id: (group as Group).id,
+    group_id: typedGroup.id,
     user_id: userId,
     color: '#00F5D4' as MemberColor,
   })
 
   if (memberError) throw handleSupabaseError(memberError)
 
-  return group as Group
+  // Generate invite code via RPC (stored server-side, returned once)
+  const { data: inviteCode, error: codeError } = await supabase.rpc('generate_invite_code', {
+    p_group_id: typedGroup.id,
+  })
+
+  if (codeError) throw handleSupabaseError(codeError)
+
+  return { ...typedGroup, invite_code: inviteCode as string } as Group
 }
 
 // ---------------------------------------------------------------------------
@@ -246,34 +246,17 @@ export async function leaveGroup(userId: string, groupId: string): Promise<void>
 // ---------------------------------------------------------------------------
 
 export async function generateNewInviteCode(
-  userId: string,
+  _userId: string,
   groupId: string,
 ): Promise<string> {
-  // Verify user is the creator
-  const { data: group, error: groupError } = await supabase
-    .from('groups')
-    .select('id, created_by')
-    .eq('id', groupId)
-    .eq('created_by', userId)
-    .single()
+  // generate_invite_code RPC verifies creator auth internally
+  const { data: newCode, error } = await supabase.rpc('generate_invite_code', {
+    p_group_id: groupId,
+  })
 
-  if (groupError) throw handleSupabaseError(groupError)
-  if (!group) throw new ApiError('FORBIDDEN', 'Only the group creator can regenerate the invite code')
+  if (error) throw handleSupabaseError(error)
 
-  const newCode = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-
-  const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-
-  const { error: updateError } = await supabase
-    .from('groups')
-    .update({ invite_code: newCode, invite_expires_at: newExpiry })
-    .eq('id', groupId)
-
-  if (updateError) throw handleSupabaseError(updateError)
-
-  return newCode
+  return newCode as string
 }
 
 // ---------------------------------------------------------------------------

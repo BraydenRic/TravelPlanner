@@ -139,8 +139,9 @@ export const budgetSchema = z.number()
  * See THREAT_MODEL.md AS-05 TOP-4 (invite code design).
  */
 export const inviteCodeSchema = z.string()
-  .length(32, 'Invalid invite code')
-  .regex(/^[0-9a-f]+$/, 'Invalid invite code format')
+  .min(4, 'Invalid invite code')
+  .max(64, 'Invalid invite code')
+  .regex(/^[0-9a-zA-Z]+$/, 'Invalid invite code format')
 
 // ---------------------------------------------------------------------------
 // Composite schemas
