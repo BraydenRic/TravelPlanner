@@ -62,6 +62,27 @@ export default function CountryDetailScreen() {
     [countryPlaces],
   )
 
+  // Group places by city so each city appears once with multiple category badges
+  const citiesGrouped = useMemo(() => {
+    const map = new Map<string, { cityId: string; categories: string[]; visitedDate?: string; overallScore?: number }>()
+    for (const p of countryPlaces) {
+      if (!p.city_id) continue
+      const existing = map.get(p.city_id)
+      if (existing) {
+        existing.categories.push(p.category)
+        if (!existing.overallScore && p.overall_score) existing.overallScore = p.overall_score
+      } else {
+        map.set(p.city_id, {
+          cityId: p.city_id,
+          categories: [p.category],
+          visitedDate: p.visited_date ?? undefined,
+          overallScore: p.overall_score ?? undefined,
+        })
+      }
+    }
+    return Array.from(map.values())
+  }, [countryPlaces])
+
   const overallScore = useMemo(() => {
     const scored = countryPlaces.filter((p) => p.overall_score)
     if (scored.length === 0) return null
@@ -132,30 +153,30 @@ export default function CountryDetailScreen() {
       {/* City list */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Cities</Text>
-        {countryPlaces
-          .filter((p) => p.city_id)
-          .map((p) => (
-            <Pressable
-              key={p.id}
-              onPress={() => p.city_id && handleCityPress(p.city_id)}
-              style={styles.cityRow}
-              accessibilityRole="button"
-            >
-              <View style={styles.cityInfo}>
-                <Text style={styles.cityName}>{p.city_id ? (cityNameMap[p.city_id] ?? p.city_id) : 'City'}</Text>
-                {p.visited_date && (
-                  <Text style={styles.cityDate}>{formatDate(p.visited_date)}</Text>
-                )}
-              </View>
-              <View style={styles.cityRight}>
-                <CategoryBadge category={p.category} />
-                {p.overall_score && (
-                  <Text style={styles.cityScore}>{p.overall_score.toFixed(1)}</Text>
-                )}
-              </View>
-            </Pressable>
-          ))}
-        {countryPlaces.filter((p) => p.city_id).length === 0 && (
+        {citiesGrouped.map((entry) => (
+          <Pressable
+            key={entry.cityId}
+            onPress={() => handleCityPress(entry.cityId)}
+            style={styles.cityRow}
+            accessibilityRole="button"
+          >
+            <View style={styles.cityInfo}>
+              <Text style={styles.cityName}>{cityNameMap[entry.cityId] ?? entry.cityId}</Text>
+              {entry.visitedDate && (
+                <Text style={styles.cityDate}>{formatDate(entry.visitedDate)}</Text>
+              )}
+            </View>
+            <View style={styles.cityRight}>
+              {entry.categories.map((cat) => (
+                <CategoryBadge key={cat} category={cat as any} />
+              ))}
+              {entry.overallScore != null && (
+                <Text style={styles.cityScore}>{entry.overallScore.toFixed(1)}</Text>
+              )}
+            </View>
+          </Pressable>
+        ))}
+        {citiesGrouped.length === 0 && (
           <Text style={styles.emptyText}>No cities visited yet</Text>
         )}
       </View>
