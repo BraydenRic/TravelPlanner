@@ -3,7 +3,7 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react'
-import { Image, Platform, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native'
+import { Image, Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View, Pressable } from 'react-native'
 import { FlashList } from '@shopify/flash-list'
 import * as Haptics from 'expo-haptics'
 import { router } from 'expo-router'
@@ -21,6 +21,8 @@ export default function ExploreScreen() {
   const [activeContinent, setActiveContinent] = useState<string>('All')
   const [searchQuery, setSearchQuery] = useState('')
   const { places } = usePlacesStore()
+  const { width } = useWindowDimensions()
+  const numColumns = width >= 768 ? 2 : 1
 
   const visitedMap = useMemo(() => {
     const m = new Map<string, string>()
@@ -136,7 +138,9 @@ export default function ExploreScreen() {
         data={filteredCountries}
         renderItem={renderCountryItem}
         keyExtractor={(item) => item.code}
-        estimatedItemSize={160}
+        estimatedItemSize={80}
+        numColumns={numColumns}
+        key={numColumns}
         contentContainerStyle={styles.grid}
         showsVerticalScrollIndicator={false}
       />
@@ -199,12 +203,14 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl + spacing.xxxl,
   },
   countryCard: {
+    flex: 1,
     backgroundColor: colors.bgL2,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.glassBorder,
     overflow: 'hidden',
     marginBottom: spacing.sm,
+    marginHorizontal: spacing.xs,
   },
   cardInner: {
     flexDirection: 'row',

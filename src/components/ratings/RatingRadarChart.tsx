@@ -4,7 +4,7 @@
  */
 
 import React, { memo, useEffect, useMemo } from 'react'
-import { StyleProp, View, ViewStyle } from 'react-native'
+import { Platform, StyleProp, View, ViewStyle } from 'react-native'
 import Svg, { Polygon, Circle, Line, Text as SvgText } from 'react-native-svg'
 import Animated, {
   useSharedValue,
@@ -33,6 +33,20 @@ interface RatingRadarChartProps {
 
 const NUM_AXES = 10
 const LEVELS = 5 // concentric rings
+
+// Short labels that fit within the SVG bounds at small sizes
+const RADAR_SHORT_LABEL: Record<string, string> = {
+  overall_experience: 'Overall',
+  safety: 'Safety',
+  food_cuisine: 'Food',
+  transportation: 'Transit',
+  friendliness: 'Friend.',
+  affordability: 'Afford.',
+  cleanliness: 'Clean',
+  nightlife_entertainment: 'Night',
+  natural_beauty: 'Nature',
+  wifi_connectivity: 'Wi-Fi',
+}
 
 function polarToCartesian(
   cx: number,
@@ -72,7 +86,7 @@ function RatingRadarChartInner({
 }: RatingRadarChartProps) {
   const cx = size / 2
   const cy = size / 2
-  const maxR = size / 2 - 28 // leave room for labels
+  const maxR = size / 2 - 50 // leave room for labels; clipping avoidance
 
   const ratingValues = useMemo(
     () => RATING_CATEGORIES.map((cat) => ratings[cat.key as RatingCategory] ?? 0),
@@ -101,7 +115,11 @@ function RatingRadarChartInner({
 
   return (
     <View style={[{ width: size, height: size }, style]}>
-      <Svg width={size} height={size}>
+      <Svg
+        width={size}
+        height={size}
+        style={Platform.OS === 'web' ? ({ overflow: 'visible' } as object) : undefined}
+      >
         {/* Grid rings */}
         {gridLevels.map((level, li) => {
           const points = Array.from({ length: NUM_AXES }, (_, i) => {
@@ -166,12 +184,12 @@ function RatingRadarChartInner({
 
         {/* Category labels */}
         {RATING_CATEGORIES.map((cat, i) => {
-          const labelR = maxR + 14
+          const labelR = maxR + 16
           const pt = polarToCartesian(cx, cy, labelR, i, NUM_AXES)
           const isRight = pt.x > cx + 10
           const isLeft = pt.x < cx - 10
           const textAnchor = isRight ? 'start' : isLeft ? 'end' : 'middle'
-          const shortLabel = cat.label.split(' ')[0]
+          const shortLabel = RADAR_SHORT_LABEL[cat.key] ?? cat.label.split(' ')[0]
 
           return (
             <SvgText

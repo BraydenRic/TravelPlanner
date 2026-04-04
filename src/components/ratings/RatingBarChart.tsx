@@ -120,7 +120,8 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.body,
     fontSize: fontSize.xs,
     color: colors.textSecondary,
-    width: 108,
+    width: 120,
+    flexShrink: 1,
   },
   barTrack: {
     flex: 1,

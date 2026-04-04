@@ -5,6 +5,7 @@
 
 import React, { memo, useCallback } from 'react'
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Animated, {
   useSharedValue,
   withSpring,
@@ -82,10 +83,11 @@ function TabIcon({ routeName, isActive, size = 26 }: TabIconProps) {
 
 function BottomTabBarInner({ state, descriptors, navigation }: TabBarProps) {
   const activeDrillDownCity = useUIStore((s) => s.activeDrillDownCity)
+  const insets = useSafeAreaInsets()
   if (activeDrillDownCity) return null
 
   return (
-    <View style={styles.outerContainer} pointerEvents="box-none">
+    <View style={[styles.outerContainer, { bottom: Math.max(12, insets.bottom + 4) }]} pointerEvents="box-none">
       <View style={styles.pill}>
         {state.routes.map((route, index) => {
           const isActive = state.index === index
@@ -172,7 +174,6 @@ function TabItem({
 const styles = StyleSheet.create({
   outerContainer: {
     position: 'absolute',
-    bottom: 12,
     left: 0,
     right: 0,
     alignItems: 'center',
