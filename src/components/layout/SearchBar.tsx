@@ -130,7 +130,24 @@ function SearchBarInner({
           animatedContainerStyle,
         ]}
       >
-        {/* Search icon */}
+        {/* Text input spans full width; icon overlays on top-left */}
+        {expanded && (
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            value={query}
+            onChangeText={handleTextChange}
+            placeholder={placeholder}
+            placeholderTextColor={colors.textTertiary}
+            returnKeyType="search"
+            onSubmitEditing={() => {
+              onSearch(query)
+              collapse()
+            }}
+          />
+        )}
+
+        {/* Search icon — absolutely positioned, no DOM boundary with input */}
         <Pressable
           onPress={expanded ? collapse : expand}
           style={styles.iconButton}
@@ -154,23 +171,6 @@ function SearchBarInner({
             />
           </Svg>
         </Pressable>
-
-        {/* Text input — visible when expanded */}
-        {expanded && (
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            value={query}
-            onChangeText={handleTextChange}
-            placeholder={placeholder}
-            placeholderTextColor={colors.textTertiary}
-            returnKeyType="search"
-            onSubmitEditing={() => {
-              onSearch(query)
-              collapse()
-            }}
-          />
-        )}
       </Animated.View>
 
       {/* Results dropdown — only when a selection handler is provided (e.g. map, not explore) */}
@@ -200,8 +200,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     borderWidth: borderWidth.thin,
     borderColor: colors.glassBorder,
-    flexDirection: 'row',
-    alignItems: 'center',
     overflow: 'hidden',
     ...Platform.select({
       web: {
@@ -212,17 +210,25 @@ const styles = StyleSheet.create({
     }),
   },
   iconButton: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
+    zIndex: 1,
+    ...Platform.select({
+      web: { outline: 'none' } as Record<string, unknown>,
+      default: {},
+    }),
   },
   input: {
     flex: 1,
     color: colors.textPrimary,
     fontFamily: fontFamily.body,
     fontSize: fontSize.base,
+    paddingLeft: 44,
     paddingRight: spacing.md,
     height: 44,
     ...Platform.select({
