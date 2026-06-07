@@ -148,7 +148,12 @@ export default function NewGroupScreen() {
 
             <View style={styles.inviteBlock}>
               <Text style={styles.inviteLabel}>INVITE CODE</Text>
-              <Pressable style={styles.codeCard} onPress={() => void handleCopy()}>
+              <Pressable
+                style={styles.codeCard}
+                onPress={() => void handleCopy()}
+                accessibilityRole="button"
+                accessibilityLabel="Copy invite code"
+              >
                 <Text style={styles.codeText}>{createdCode.slice(0, 8).toUpperCase()}</Text>
                 <Text style={styles.copyHint}>{copied ? '✓  Copied' : 'Tap to copy'}</Text>
               </Pressable>
@@ -156,7 +161,12 @@ export default function NewGroupScreen() {
             </View>
 
             <View style={styles.successActions}>
-              <Pressable style={styles.primaryBtn} onPress={handleOpenGroup}>
+              <Pressable
+                style={styles.primaryBtn}
+                onPress={handleOpenGroup}
+                accessibilityRole="button"
+                accessibilityLabel="Open group"
+              >
                 <Text style={styles.primaryBtnText}>Open Group</Text>
               </Pressable>
             </View>
@@ -204,6 +214,9 @@ export default function NewGroupScreen() {
             <Pressable
               style={[styles.toggleOption, tab === 'create' && styles.toggleActive]}
               onPress={() => switchTab('create')}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === 'create' }}
+              accessibilityLabel="Create tab"
             >
               <Text style={[styles.toggleLabel, tab === 'create' && styles.toggleLabelActive]}>
                 Create
@@ -212,6 +225,9 @@ export default function NewGroupScreen() {
             <Pressable
               style={[styles.toggleOption, tab === 'join' && styles.toggleActive]}
               onPress={() => switchTab('join')}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === 'join' }}
+              accessibilityLabel="Join tab"
             >
               <Text style={[styles.toggleLabel, tab === 'join' && styles.toggleLabelActive]}>
                 Join
@@ -265,6 +281,8 @@ export default function NewGroupScreen() {
               style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
               onPress={() => void (tab === 'create' ? handleCreate() : handleJoin())}
               disabled={loading}
+              accessibilityRole="button"
+              accessibilityLabel={tab === 'create' ? 'Create group' : 'Join group'}
             >
               {loading
                 ? <ActivityIndicator color={colors.bgL0} size="small" />

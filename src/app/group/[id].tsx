@@ -29,7 +29,7 @@ import type { Profile } from '@typedefs/database'
 
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  const { groups, groupMembers, groupMapData, setGroupMembers, setGroupMapData, removeGroup } = useGroupStore()
+  const { groups, groupMembers, groupMapData, addGroup, setGroupMembers, setGroupMapData, removeGroup } = useGroupStore()
   const { user } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'map' | 'members'>('map')
   const [loading, setLoading] = useState(true)
@@ -50,6 +50,11 @@ export default function GroupDetailScreen() {
     void (async () => {
       try {
         const { group: fetchedGroup, members: fetchedMembers } = await getGroup(id)
+        // Cold-load case: store may not have this group (e.g. direct URL navigation).
+        // Add it so the screen can read group name + creator status.
+        if (!useGroupStore.getState().groups.some((g) => g.id === fetchedGroup.id)) {
+          addGroup(fetchedGroup)
+        }
         setGroupMembers(id, fetchedMembers)
         setInviteCode(fetchedGroup.invite_code ?? null)
         setInviteExpiry(fetchedGroup.invite_expires_at ?? null)
@@ -81,7 +86,7 @@ export default function GroupDetailScreen() {
         setLoading(false)
       }
     })()
-  }, [id, setGroupMembers, setGroupMapData])
+  }, [id, addGroup, setGroupMembers, setGroupMapData])
 
   const handleBack = useCallback(() => {
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -163,7 +168,12 @@ export default function GroupDetailScreen() {
       {/* Top bar */}
       <View style={styles.topBar}>
         <GlassPanel style={styles.backBtn}>
-          <Pressable onPress={handleBack} style={styles.backPressable}>
+          <Pressable
+            onPress={handleBack}
+            style={styles.backPressable}
+            accessibilityRole="button"
+            accessibilityLabel="Back to groups"
+          >
             <Text style={styles.backText}>← Groups</Text>
           </Pressable>
         </GlassPanel>
@@ -172,6 +182,8 @@ export default function GroupDetailScreen() {
           onPress={handleLeave}
           style={styles.leaveBtn}
           disabled={leaving}
+          accessibilityRole="button"
+          accessibilityLabel="Leave group"
         >
           <Text style={styles.leaveBtnText}>{leaving ? '…' : 'Leave'}</Text>
         </Pressable>
@@ -241,7 +253,12 @@ export default function GroupDetailScreen() {
             <Text style={styles.sectionTitle}>Invite</Text>
             {inviteCode ? (
               <View style={styles.inviteCard}>
-                <Pressable style={styles.codeRow} onPress={() => void handleCopyCode()}>
+                <Pressable
+                  style={styles.codeRow}
+                  onPress={() => void handleCopyCode()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Copy invite code"
+                >
                   <Text style={styles.inviteCode}>{inviteCode.slice(0, 8).toUpperCase()}</Text>
                   <Text style={styles.copyHint}>{copiedCode ? '✓ Copied' : 'Tap to copy'}</Text>
                 </Pressable>
@@ -255,6 +272,8 @@ export default function GroupDetailScreen() {
                     style={styles.regenBtn}
                     onPress={() => void handleRegenerateCode()}
                     disabled={regenerating}
+                    accessibilityRole="button"
+                    accessibilityLabel="Generate new invite code"
                   >
                     <Text style={styles.regenBtnText}>
                       {regenerating ? 'Regenerating…' : 'Generate new code'}
