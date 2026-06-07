@@ -15,13 +15,13 @@
 
 import * as SecureStore from 'expo-secure-store'
 import { Platform } from 'react-native'
-
 // Use the single shared Supabase client — never create a second instance.
 // Two separate clients share the same SecureStore keys but maintain separate
 // in-memory state, so auth events (login/logout) fired on one client are
 // never received by listeners on the other.
-export { supabase } from '@lib/supabase'
 import { supabase } from '@lib/supabase'
+
+export { supabase }
 
 // ---------------------------------------------------------------------------
 // Google OAuth sign-in

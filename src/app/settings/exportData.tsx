@@ -3,7 +3,7 @@
  */
 
 import React, { useCallback, useState } from 'react'
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { type DimensionValue, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Animated, {
   useSharedValue,
   withTiming,
@@ -47,7 +47,7 @@ export default function ExportDataScreen() {
   }, [progressWidth])
 
   const progressStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value * 100}%` as any,
+    width: `${progressWidth.value * 100}%` as DimensionValue,
   }))
 
   return (

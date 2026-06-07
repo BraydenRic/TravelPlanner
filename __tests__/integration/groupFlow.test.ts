@@ -3,6 +3,10 @@
  *
  * Tests the full chain: create group → generate invite → join → membership checks.
  * All Supabase calls are mocked; real service logic is exercised end-to-end.
+ *
+ * Note: createGroup, joinGroup, and generateNewInviteCode call Postgres functions
+ * (RPCs) for atomic, RLS-bypassing operations. We mock both the .from() chain
+ * for direct table reads/writes and the .rpc() call for stored-procedure invocations.
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -15,7 +19,6 @@ import {
   MEMBER_COLORS,
 } from '@services/groups'
 import { getGroupCountryRatings } from '@services/ratings'
-import { ApiError } from '@lib/apiErrors'
 import {
   createMockGroup,
   createMockGroupMember,
@@ -34,6 +37,10 @@ const mockSupabase = (() => {
 
 function getMockFrom() {
   return mockSupabase.from as jest.Mock
+}
+
+function getMockRpc() {
+  return mockSupabase.rpc as jest.Mock
 }
 
 function mockChain(result: { data: unknown; error: unknown }) {
@@ -61,6 +68,11 @@ function mockChain(result: { data: unknown; error: unknown }) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  // Default: getUser resolves to a stub so joinGroup's member fetch doesn't NPE
+  ;(mockSupabase.auth.getUser as jest.Mock).mockResolvedValue({
+    data: { user: { id: 'user-B' } },
+    error: null,
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -69,52 +81,44 @@ beforeEach(() => {
 
 describe('Group flow — full join flow', () => {
   it('User A creates group, User B joins via valid invite code', async () => {
+    const inviteCode = 'aabbccdd11223344aabbccdd11223344'
     const group = createMockGroup({
       id: 'group-abc',
       created_by: 'user-A',
-      invite_code: 'aabbccdd11223344aabbccdd11223344',
+      invite_code: inviteCode,
       invite_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     })
 
-    // createGroup: insert group → insert member
+    // createGroup: insert group → insert creator member → rpc('generate_invite_code')
     const groupChain = mockChain({ data: group, error: null })
-    groupChain.select = jest.fn().mockReturnThis()
     groupChain.single = jest.fn().mockResolvedValue({ data: group, error: null })
     getMockFrom().mockReturnValueOnce(groupChain)
     getMockFrom().mockReturnValueOnce(mockChain({ data: null, error: null })) // insert creator member
+    getMockRpc().mockResolvedValueOnce({ data: inviteCode, error: null }) // generate_invite_code
 
     const created = await createGroup('user-A', 'Travel Crew')
     expect(created.id).toBe('group-abc')
     expect(created.invite_code).toMatch(/^[0-9a-f]{32}$/)
 
-    // joinGroup: find group by code → check members → insert new member
-    getMockFrom().mockReturnValueOnce(
-      mockChain({ data: group, error: null }), // group lookup
-    )
-    getMockFrom().mockReturnValueOnce(
-      mockChain({ data: [], error: null }), // existing members (none)
-    )
-
+    // joinGroup: rpc('join_group_by_code') → fetch new member row
+    getMockRpc().mockResolvedValueOnce({ data: 'group-abc', error: null })
     const newMember = createMockGroupMember({ user_id: 'user-B', group_id: 'group-abc', color: '#F5A623' })
-    const insertChain = mockChain({ data: newMember, error: null })
-    insertChain.select = jest.fn().mockReturnThis()
-    insertChain.single = jest.fn().mockResolvedValue({ data: newMember, error: null })
-    getMockFrom().mockReturnValueOnce(insertChain)
+    const memberFetchChain = mockChain({ data: newMember, error: null })
+    memberFetchChain.single = jest.fn().mockResolvedValue({ data: newMember, error: null })
+    getMockFrom().mockReturnValueOnce(memberFetchChain)
 
-    const member = await joinGroup('user-B', 'aabbccdd11223344aabbccdd11223344')
+    const member = await joinGroup('user-B', inviteCode)
     expect(member.user_id).toBe('user-B')
     expect(member.group_id).toBe('group-abc')
   })
 
   it('generates a new invite code and returns a 32-char hex string', async () => {
-    // generateNewInviteCode: verify creator → update
-    const creatorCheckChain = mockChain({ data: { id: 'group-abc', created_by: 'user-A' }, error: null })
-    getMockFrom().mockReturnValueOnce(creatorCheckChain)
-    getMockFrom().mockReturnValueOnce(mockChain({ data: null, error: null })) // update
+    const newCode = 'ffeeddccbbaa99887766554433221100'
+    getMockRpc().mockResolvedValueOnce({ data: newCode, error: null })
 
-    const newCode = await generateNewInviteCode('user-A', 'group-abc')
-    expect(newCode).toHaveLength(32)
-    expect(newCode).toMatch(/^[0-9a-f]{32}$/)
+    const returned = await generateNewInviteCode('user-A', 'group-abc')
+    expect(returned).toHaveLength(32)
+    expect(returned).toMatch(/^[0-9a-f]{32}$/)
   })
 })
 
@@ -125,7 +129,7 @@ describe('Group flow — full join flow', () => {
 describe('Group flow — getGroupCountryRatings', () => {
   it('calls compute_group_country_ratings RPC and maps response', async () => {
     const countryRatings = createMockCountryRatings('JP')
-    ;(mockSupabase.rpc as jest.Mock).mockResolvedValueOnce({
+    getMockRpc().mockResolvedValueOnce({
       data: {
         group_average: countryRatings.categories,
         group_overall: 4.2,
@@ -145,17 +149,15 @@ describe('Group flow — getGroupCountryRatings', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Expired invite code
+// Expired invite code — RPC returns an "invite_expired" error
 // ---------------------------------------------------------------------------
 
 describe('Group flow — expired invite', () => {
-  it('throws INVITE_EXPIRED when invite_expires_at is in the past', async () => {
-    const expiredGroup = createMockGroup({
-      invite_code: 'aabbccdd11223344aabbccdd11223344',
-      invite_expires_at: new Date(Date.now() - 1000).toISOString(), // already expired
+  it('throws INVITE_EXPIRED when the RPC reports invite_expired', async () => {
+    getMockRpc().mockResolvedValueOnce({
+      data: null,
+      error: { message: 'invite_expired' },
     })
-
-    getMockFrom().mockReturnValueOnce(mockChain({ data: expiredGroup, error: null }))
 
     await expect(
       joinGroup('user-B', 'aabbccdd11223344aabbccdd11223344'),
@@ -164,22 +166,15 @@ describe('Group flow — expired invite', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Group full — 5th user cannot join
+// Group full — RPC returns a "group_full" error
 // ---------------------------------------------------------------------------
 
 describe('Group flow — GROUP_FULL', () => {
-  it('throws GROUP_FULL when group already has 4 members', async () => {
-    const group = createMockGroup({
-      invite_code: 'aabbccdd11223344aabbccdd11223344',
-      invite_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  it('throws GROUP_FULL when the RPC reports group_full', async () => {
+    getMockRpc().mockResolvedValueOnce({
+      data: null,
+      error: { message: 'group_full' },
     })
-
-    const fourMembers = MEMBER_COLORS.map((color, i) =>
-      createMockGroupMember({ user_id: `user-${i + 1}`, color }),
-    )
-
-    getMockFrom().mockReturnValueOnce(mockChain({ data: group, error: null })) // group lookup
-    getMockFrom().mockReturnValueOnce(mockChain({ data: fourMembers, error: null })) // members
 
     await expect(
       joinGroup('user-5', 'aabbccdd11223344aabbccdd11223344'),

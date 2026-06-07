@@ -4,8 +4,21 @@
 
 import React from 'react'
 import { render, fireEvent } from '@testing-library/react-native'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { BottomTabBar } from '@components/layout/BottomTabBar'
 import * as Haptics from 'expo-haptics'
+
+// useSafeAreaInsets needs initial frame/insets to resolve synchronously in tests
+const safeAreaMetrics = {
+  frame: { x: 0, y: 0, width: 390, height: 844 },
+  insets: { top: 47, left: 0, right: 0, bottom: 34 },
+}
+
+function renderWithSafeArea(ui: React.ReactElement) {
+  return render(
+    <SafeAreaProvider initialMetrics={safeAreaMetrics}>{ui}</SafeAreaProvider>,
+  )
+}
 
 jest.mock('react-native-reanimated', () =>
   require('react-native-reanimated/mock'),
@@ -52,7 +65,7 @@ describe('BottomTabBar', () => {
 
   describe('Render', () => {
     it('renders without crashing', () => {
-      const { toJSON } = render(
+      const { toJSON } = renderWithSafeArea(
         <BottomTabBar
           state={mockState}
           descriptors={mockDescriptors}
@@ -63,7 +76,7 @@ describe('BottomTabBar', () => {
     })
 
     it('renders 4 tab items', () => {
-      const { getAllByRole } = render(
+      const { getAllByRole } = renderWithSafeArea(
         <BottomTabBar
           state={mockState}
           descriptors={mockDescriptors}
@@ -74,7 +87,7 @@ describe('BottomTabBar', () => {
     })
 
     it('marks first tab as active', () => {
-      const { getAllByRole } = render(
+      const { getAllByRole } = renderWithSafeArea(
         <BottomTabBar
           state={mockState}
           descriptors={mockDescriptors}
@@ -87,7 +100,7 @@ describe('BottomTabBar', () => {
     })
 
     it('shows active tab label', () => {
-      const { getByText } = render(
+      const { getByText } = renderWithSafeArea(
         <BottomTabBar
           state={mockState}
           descriptors={mockDescriptors}
@@ -101,7 +114,7 @@ describe('BottomTabBar', () => {
 
   describe('Interaction', () => {
     it('calls navigation.emit on tab press', () => {
-      const { getAllByRole } = render(
+      const { getAllByRole } = renderWithSafeArea(
         <BottomTabBar
           state={mockState}
           descriptors={mockDescriptors}
@@ -115,7 +128,7 @@ describe('BottomTabBar', () => {
     })
 
     it('fires haptic on tab press', () => {
-      const { getAllByRole } = render(
+      const { getAllByRole } = renderWithSafeArea(
         <BottomTabBar
           state={mockState}
           descriptors={mockDescriptors}
@@ -129,7 +142,7 @@ describe('BottomTabBar', () => {
 
   describe('Edge cases', () => {
     it('renders with index=3 (profile active)', () => {
-      const { getAllByRole } = render(
+      const { getAllByRole } = renderWithSafeArea(
         <BottomTabBar
           state={{ ...mockState, index: 3 }}
           descriptors={mockDescriptors}
@@ -147,7 +160,7 @@ describe('BottomTabBar', () => {
         emit: jest.fn(() => ({ defaultPrevented: true })),
         navigate: mockNavigate,
       }
-      const { getAllByRole } = render(
+      const { getAllByRole } = renderWithSafeArea(
         <BottomTabBar
           state={mockState}
           descriptors={mockDescriptors}

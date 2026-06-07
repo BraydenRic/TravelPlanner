@@ -99,7 +99,7 @@ function GlobalRatingBadgeInner({
         <Text
           style={[
             styles.scoreText,
-            { fontSize: isLarge ? 32 : 20 },
+            isLarge ? styles.scoreTextLarge : styles.scoreTextSmall,
           ]}
         >
           {score > 0 ? score.toFixed(1) : '—'}
@@ -123,6 +123,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     color: colors.accentAmber,
     letterSpacing: -1,
+  },
+  scoreTextLarge: {
+    fontSize: 32,
+  },
+  scoreTextSmall: {
+    fontSize: 20,
   },
   label: {
     fontFamily: fontFamily.body,

@@ -4,7 +4,7 @@
  */
 
 import React, { memo, useCallback } from 'react'
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { type DimensionValue, Platform, Pressable, StyleSheet, Text, View } from 'react-native'
 import Animated, {
   useSharedValue,
   withSpring,
@@ -102,7 +102,7 @@ function TopRatedRow({
               colors={[colors.accentAmber, 'rgba(245,166,35,0.2)']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={[styles.barFill, { width: barWidth as any }]}
+              style={[styles.barFill, { width: barWidth as DimensionValue }]}
             />
           </View>
           <Text style={styles.score}>{item.score.toFixed(1)}</Text>

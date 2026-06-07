@@ -86,8 +86,8 @@ describe('GlassPanel', () => {
       )
       const json = toJSON() as any
       const flatStyle = JSON.stringify(json.props.style)
-      // Background should use reduced opacity
-      expect(flatStyle).toContain('rgba(15,17,23,0.36)')
+      // Background uses bgL1 scaled by intensity (0.80 * 0.5 = 0.40)
+      expect(flatStyle).toContain('rgba(36,40,55,0.40)')
     })
   })
 

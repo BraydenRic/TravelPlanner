@@ -28,7 +28,7 @@ export default function TimelineScreen() {
   const sorted = React.useMemo(
     () =>
       [...places]
-        .filter((p) => p.visited_date || p.planned_date)
+        .filter((p) => p.visited_date ?? p.planned_date)
         .sort((a, b) => {
           const da = new Date(a.visited_date ?? a.planned_date ?? '').getTime()
           const db = new Date(b.visited_date ?? b.planned_date ?? '').getTime()
@@ -169,9 +169,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
-  timeline: {
-    gap: 0,
-  },
   entry: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -251,8 +248,5 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.textSecondary,
     textAlign: 'center',
-  },
-  compassIcon: {
-    fontSize: 28,
   },
 })

@@ -23,7 +23,7 @@ import { RatingRadarChart } from '@components/ratings/RatingRadarChart'
 import { RatingBarChart } from '@components/ratings/RatingBarChart'
 import { RatingToggle } from '@components/ratings/RatingToggle'
 import { CategoryBadge } from '@components/ui/CategoryBadge'
-import type { RatingCategory } from '@typedefs/database'
+import type { PlaceCategory, RatingCategory } from '@typedefs/database'
 
 const EMPTY_RATINGS: Record<RatingCategory, number> = {
   overall_experience: 0,
@@ -183,7 +183,7 @@ export default function CountryDetailScreen() {
             </View>
             <View style={styles.cityRight}>
               {entry.categories.map((cat) => (
-                <CategoryBadge key={cat} category={cat as any} />
+                <CategoryBadge key={cat} category={cat as PlaceCategory} />
               ))}
               {entry.overallScore != null && (
                 <Text style={styles.cityScore}>{entry.overallScore.toFixed(1)}</Text>
