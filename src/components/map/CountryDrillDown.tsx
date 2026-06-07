@@ -299,9 +299,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   dotUnvisited: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: colors.whiteAlpha15,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.30)',
+    borderColor: colors.whiteAlpha30,
   },
   cityInfo: {
     flex: 1,

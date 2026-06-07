@@ -61,24 +61,19 @@ function ShimmerSkeletonInner({
   return (
     <View
       style={[
-        {
-          width,
-          height,
-          borderRadius,
-          backgroundColor: colors.bgL2,
-          overflow: 'hidden',
-        },
+        styles.skeleton,
+        { width, height, borderRadius },
         style,
       ]}
     >
       <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
         <LinearGradient
           colors={[
-            'transparent',
-            'rgba(255,255,255,0.06)',
-            'rgba(255,255,255,0.12)',
-            'rgba(255,255,255,0.06)',
-            'transparent',
+            colors.transparent,
+            colors.whiteAlpha06,
+            colors.whiteAlpha12,
+            colors.whiteAlpha06,
+            colors.transparent,
           ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
@@ -88,5 +83,12 @@ function ShimmerSkeletonInner({
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  skeleton: {
+    backgroundColor: colors.bgL2,
+    overflow: 'hidden',
+  },
+})
 
 export const ShimmerSkeleton = memo(ShimmerSkeletonInner)

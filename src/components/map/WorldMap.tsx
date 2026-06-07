@@ -143,7 +143,7 @@ if (Platform.OS === 'web') {
         <ComposableMap
           projection="geoNaturalEarth1"
           projectionConfig={{ scale: 160, center: [0, 10] }}
-          style={{ width: '100%', height: '100%', backgroundColor: colors.mapOcean, pointerEvents: 'auto' }}
+          style={COMPOSABLE_MAP_STYLE}
         >
           <ZoomableGroup
             zoom={position.zoom}
@@ -201,6 +201,13 @@ const MobileMap = memo(function MobileMap({
     </View>
   )
 })
+
+const COMPOSABLE_MAP_STYLE = {
+  width: '100%' as const,
+  height: '100%' as const,
+  backgroundColor: colors.mapOcean,
+  pointerEvents: 'auto' as const,
+}
 
 // ---------------------------------------------------------------------------
 // Main export

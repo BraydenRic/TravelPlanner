@@ -67,7 +67,7 @@ export default function MapScreen() {
   } = useMap()
 
   const { activeCategory, setActiveCategory, activeDrillDownCity, setDrillDown } = useUIStore()
-  const { places, getPlacesByCountry, addPlace, updatePlace: updatePlaceInStore, removePlace, setPlaces } = usePlacesStore()
+  const { places, addPlace, updatePlace: updatePlaceInStore, removePlace, setPlaces } = usePlacesStore()
   const { user } = useAuthStore()
   const [drillDownCityData, setDrillDownCityData] = useState<City[]>([])
   const [ratingFormError, setRatingFormError] = useState<string | null>(null)
@@ -158,7 +158,7 @@ export default function MapScreen() {
         const existing = await getPlaceByCountryAndCity(user.id, activeDrillDownCountry, activeDrillDownCity)
 
         let place
-        if (existing && existing.category === activeCategory) {
+        if (existing?.category === activeCategory) {
           place = await updatePlace(existing.id, user.id, {
             category: activeCategory,
             review: review || undefined,
@@ -240,7 +240,7 @@ export default function MapScreen() {
 
   const drillDownCities = useMemo(() => {
     if (!activeDrillDownCountry) return []
-    const countryPlaces = getPlacesByCountry(activeDrillDownCountry)
+    const countryPlaces = places.filter((p) => p.country_code === activeDrillDownCountry)
     return drillDownCityData.map((city) => {
       const place = countryPlaces.find((p) => p.city_id === city.id && p.category === activeCategory)
       return {
@@ -250,7 +250,7 @@ export default function MapScreen() {
         overallScore: place?.overall_score ?? undefined,
       }
     })
-  }, [activeDrillDownCountry, activeCategory, drillDownCityData, getPlacesByCountry, places])
+  }, [activeDrillDownCountry, activeCategory, drillDownCityData, places])
 
   return (
     <View style={styles.container}>
@@ -350,9 +350,9 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md + 2,
     paddingVertical: spacing.sm,
-    backgroundColor: 'rgba(10,12,18,0.90)',
+    backgroundColor: colors.darkOverlay90,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
+    borderColor: colors.whiteAlpha22,
   },
   statText: {
     fontFamily: fontFamily.semibold,

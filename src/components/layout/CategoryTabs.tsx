@@ -67,10 +67,10 @@ function CategoryTabsInner({ activeCategory, onCategoryChange, style }: Category
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(10,12,18,0.85)',
+    backgroundColor: colors.darkOverlay85,
     borderRadius: borderRadius.full,
     borderWidth: borderWidth.thin,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: colors.whiteAlpha15,
     padding: 3,
     alignSelf: 'center',
     gap: 2,
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: fontFamily.semibold,
     fontSize: fontSize.sm + 1,
-    color: 'rgba(255,255,255,0.70)',
+    color: colors.whiteAlpha70,
     letterSpacing: 0.3,
   },
   activeLabel: {

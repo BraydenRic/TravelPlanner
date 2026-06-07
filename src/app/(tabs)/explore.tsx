@@ -14,6 +14,7 @@ import { COUNTRIES, CONTINENTS } from '@constants/countries'
 import { SearchBar } from '@components/layout/SearchBar'
 import { CategoryBadge } from '@components/ui/CategoryBadge'
 import { usePlacesStore } from '@stores/placesStore'
+import type { PlaceCategory } from '@typedefs/database'
 
 const ALL_CONTINENTS = ['All', ...CONTINENTS] as const
 
@@ -25,7 +26,7 @@ export default function ExploreScreen() {
   const numColumns = width >= 768 ? 2 : 1
 
   const visitedMap = useMemo(() => {
-    const m = new Map<string, string>()
+    const m = new Map<string, PlaceCategory>()
     places.forEach((p) => m.set(p.country_code, p.category))
     return m
   }, [places])
@@ -85,7 +86,7 @@ export default function ExploreScreen() {
             </View>
             {visitStatus && (
               <CategoryBadge
-                category={visitStatus as any}
+                category={visitStatus}
                 style={styles.cardBadge}
               />
             )}
@@ -187,7 +188,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   continentChipActive: {
-    backgroundColor: 'rgba(0,245,212,0.15)',
+    backgroundColor: colors.tealAlpha15,
     borderColor: colors.accentTeal,
   },
   continentLabel: {

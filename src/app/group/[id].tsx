@@ -19,6 +19,7 @@ import { useGroupStore } from '@stores/groupStore'
 import { useAuthStore } from '@stores/authStore'
 import { getGroup, getGroupMapData, leaveGroup, generateNewInviteCode } from '@services/groups'
 import { getProfileById } from '@services/profiles'
+import { subscribeToGroup } from '@lib/realtime'
 import { colors } from '@theme/colors'
 import { borderRadius, spacing } from '@theme/spacing'
 import { fontFamily, fontSize } from '@theme/typography'
@@ -44,49 +45,65 @@ export default function GroupDetailScreen() {
   const members = groupMembers[id] ?? []
   const mapData = groupMapData[id] ?? []
 
+  // Refetch helpers — used by initial load AND realtime push events.
+  const refetchMembers = useCallback(async () => {
+    if (!id) return
+    try {
+      const { group: fetchedGroup, members: fetchedMembers } = await getGroup(id)
+      if (!useGroupStore.getState().groups.some((g) => g.id === fetchedGroup.id)) {
+        addGroup(fetchedGroup)
+      }
+      setGroupMembers(id, fetchedMembers)
+      setInviteCode(fetchedGroup.invite_code ?? null)
+      setInviteExpiry(fetchedGroup.invite_expires_at ?? null)
+
+      const profileMap: Record<string, Profile> = {}
+      await Promise.all(
+        fetchedMembers.map(async (m) => {
+          try {
+            const p = await getProfileById(m.user_id)
+            if (p) profileMap[m.user_id] = p
+          } catch {
+            // non-fatal
+          }
+        }),
+      )
+      setProfiles(profileMap)
+    } catch {
+      // group not found or no access
+    }
+  }, [id, addGroup, setGroupMembers])
+
+  const refetchMap = useCallback(async () => {
+    if (!id) return
+    try {
+      const mapEntries = await getGroupMapData(id)
+      setGroupMapData(id, mapEntries)
+    } catch {
+      // non-fatal
+    }
+  }, [id, setGroupMapData])
+
   // Load group data on mount
   useEffect(() => {
     if (!id) return
     void (async () => {
-      try {
-        const { group: fetchedGroup, members: fetchedMembers } = await getGroup(id)
-        // Cold-load case: store may not have this group (e.g. direct URL navigation).
-        // Add it so the screen can read group name + creator status.
-        if (!useGroupStore.getState().groups.some((g) => g.id === fetchedGroup.id)) {
-          addGroup(fetchedGroup)
-        }
-        setGroupMembers(id, fetchedMembers)
-        setInviteCode(fetchedGroup.invite_code ?? null)
-        setInviteExpiry(fetchedGroup.invite_expires_at ?? null)
-
-        // Load member profiles
-        const profileMap: Record<string, Profile> = {}
-        await Promise.all(
-          fetchedMembers.map(async (m) => {
-            try {
-              const p = await getProfileById(m.user_id)
-              if (p) profileMap[m.user_id] = p
-            } catch {
-              // non-fatal
-            }
-          }),
-        )
-        setProfiles(profileMap)
-
-        // Load map data
-        try {
-          const mapEntries = await getGroupMapData(id)
-          setGroupMapData(id, mapEntries)
-        } catch {
-          // non-fatal
-        }
-      } catch {
-        // group not found or no access
-      } finally {
-        setLoading(false)
-      }
+      await refetchMembers()
+      await refetchMap()
+      setLoading(false)
     })()
-  }, [id, addGroup, setGroupMembers, setGroupMapData])
+  }, [id, refetchMembers, refetchMap])
+
+  // Subscribe to realtime updates while this screen is mounted.
+  // Member joins, leaves, and code regenerations push live; place adds refresh the map.
+  useEffect(() => {
+    if (!id) return
+    const unsubscribe = subscribeToGroup(id, {
+      onMemberChanged: () => void refetchMembers(),
+      onPlaceAdded: () => void refetchMap(),
+    })
+    return unsubscribe
+  }, [id, refetchMembers, refetchMap])
 
   const handleBack = useCallback(() => {
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -356,7 +373,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderBottomColor: colors.transparent,
     minHeight: 44,
     justifyContent: 'center',
   },

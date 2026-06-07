@@ -231,9 +231,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.whiteAlpha06,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: colors.whiteAlpha12,
   },
   unvisitedText: {
     fontFamily: fontFamily.medium,

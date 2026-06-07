@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgL1,
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: colors.whiteAlpha06,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     minHeight: 52,
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.accentCoral,
-    backgroundColor: 'rgba(255,107,107,0.08)',
+    backgroundColor: colors.coralAlpha08,
     minHeight: 52,
   },
   logoutText: {

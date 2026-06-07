@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   barTrack: {
     flex: 1,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.whiteAlpha06,
     borderRadius: 2,
     flexDirection: 'row',
     overflow: 'hidden',

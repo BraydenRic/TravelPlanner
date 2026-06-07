@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pinUnvisited: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.transparent,
     borderWidth: 1.5,
     borderStyle: 'dashed' as const,
     borderColor: colors.textTertiary,

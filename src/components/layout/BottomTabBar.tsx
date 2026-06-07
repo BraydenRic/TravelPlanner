@@ -181,10 +181,10 @@ const styles = StyleSheet.create({
   },
   pill: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(8,10,18,0.95)',
+    backgroundColor: colors.darkOverlay95,
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.28)',
+    borderColor: colors.whiteAlpha28,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     gap: spacing.xs,
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
       } as Record<string, string>,
       default: {},
     }),
-    shadowColor: '#000',
+    shadowColor: colors.shadowBlack,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 12,
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontFamily: fontFamily.medium,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.whiteAlpha55,
     letterSpacing: 0.2,
   },
   activeLabel: {

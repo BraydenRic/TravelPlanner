@@ -137,12 +137,7 @@ function AchievementBadgeInner({
       <View
         style={[
           styles.iconContainer,
-          unlocked && {
-            shadowColor: config.color,
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.6,
-            shadowRadius: 8,
-          },
+          unlocked && [styles.iconGlow, { shadowColor: config.color }],
           { opacity: containerOpacity },
         ]}
       >
@@ -201,6 +196,11 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconGlow: {
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
   },
   lockOverlay: {
     position: 'absolute',

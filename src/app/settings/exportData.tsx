@@ -188,11 +188,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: 'rgba(34,197,94,0.1)',
+    backgroundColor: colors.successAlpha10,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.3)',
+    borderColor: colors.successAlpha30,
   },
   doneIcon: {
     fontFamily: fontFamily.heading,

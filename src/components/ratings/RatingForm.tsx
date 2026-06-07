@@ -84,11 +84,11 @@ function ScoreRing({ score, size = 72, color }: { score: number | null; size?: n
   const progress = score ? (score / 5) * circumference : 0
 
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+    <View style={[styles.scoreRingContainer, { width: size, height: size }]}>
+      <Svg width={size} height={size} style={styles.scoreRingSvg}>
         <Circle
           cx={size / 2} cy={size / 2} r={radius}
-          fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={4}
+          fill="none" stroke={colors.whiteAlpha08} strokeWidth={4}
         />
         <Circle
           cx={size / 2} cy={size / 2} r={radius}
@@ -250,7 +250,7 @@ function RatingFormInner({
           </View>
         )}
 
-        <View style={{ height: 20 }} />
+        <View style={styles.scrollBottomSpacer} />
       </ScrollView>
 
       {/* Sticky save footer */}
@@ -271,16 +271,16 @@ const styles = StyleSheet.create({
   },
   // ── Error banner ──────────────────────────────────────────────────
   errorBanner: {
-    backgroundColor: 'rgba(255,80,80,0.15)',
+    backgroundColor: colors.coralAlpha15,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,80,80,0.30)',
+    borderBottomColor: colors.coralAlpha30,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
   errorText: {
     fontFamily: fontFamily.medium,
     fontSize: fontSize.sm,
-    color: '#FF6B6B',
+    color: colors.accentCoral,
   },
   // ── Top nav ───────────────────────────────────────────────────────
   topNav: {
@@ -362,6 +362,16 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
     textAlign: 'center',
   },
+  scoreRingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scoreRingSvg: {
+    position: 'absolute',
+  },
+  scrollBottomSpacer: {
+    height: 20,
+  },
   // ── Progress ──────────────────────────────────────────────────────
   progressRow: {
     paddingHorizontal: spacing.lg,
@@ -384,7 +394,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.whiteAlpha05,
     gap: spacing.sm,
   },
   categoryRowLast: {

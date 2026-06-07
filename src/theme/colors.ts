@@ -47,10 +47,43 @@ export const colors = {
   mapWantToGo: '#F5A623',
   mapLived: '#A78BFA',
 
+  // White overlays (used for borders, dividers, subtle backgrounds)
+  whiteAlpha05: 'rgba(255,255,255,0.05)',
+  whiteAlpha06: 'rgba(255,255,255,0.06)',
+  whiteAlpha08: 'rgba(255,255,255,0.08)',
+  whiteAlpha09: 'rgba(255,255,255,0.09)',
+  whiteAlpha12: 'rgba(255,255,255,0.12)',
+  whiteAlpha15: 'rgba(255,255,255,0.15)',
+  whiteAlpha22: 'rgba(255,255,255,0.22)',
+  whiteAlpha28: 'rgba(255,255,255,0.28)',
+  whiteAlpha30: 'rgba(255,255,255,0.30)',
+  whiteAlpha55: 'rgba(255,255,255,0.55)',
+  whiteAlpha70: 'rgba(255,255,255,0.70)',
+
+  // Dark overlays (used for elevated panels, tab bar)
+  darkOverlay85: 'rgba(10,12,18,0.85)',
+  darkOverlay90: 'rgba(10,12,18,0.90)',
+  darkOverlay95: 'rgba(8,10,18,0.95)',
+
+  // Accent overlays — teal
+  tealAlpha08: 'rgba(0,245,212,0.08)',
+  tealAlpha15: 'rgba(0,245,212,0.15)',
+  tealAlpha20: 'rgba(0,245,212,0.20)',
+
+  // Accent overlays — coral / danger
+  coralAlpha08: 'rgba(255,107,107,0.08)',
+  coralAlpha15: 'rgba(255,80,80,0.15)',
+  coralAlpha30: 'rgba(255,80,80,0.30)',
+
+  // Accent overlays — success / green
+  successAlpha10: 'rgba(34,197,94,0.10)',
+  successAlpha30: 'rgba(34,197,94,0.30)',
+
   // Utility
   transparent: 'transparent',
   white: '#FFFFFF',
   black: '#000000',
+  shadowBlack: '#000',
 } as const
 
 export type ColorKey = keyof typeof colors

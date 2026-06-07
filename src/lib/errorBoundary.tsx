@@ -15,6 +15,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { colors } from '../theme/colors'
+import { captureException } from './monitoring'
 
 interface Props {
   children: ReactNode
@@ -38,15 +39,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    // In production, errors should be sent to a monitoring service
-    // (e.g., Sentry) rather than logged to the console.
-    // Console output in production builds is readable by anyone with
-    // developer tools — never log PII or sensitive data here.
-    if (__DEV__) {
-      console.error('[ErrorBoundary]', error, errorInfo)
-    }
-    // TODO: integrate with monitoring service (Sentry, Bugsnag, etc.)
-    // monitoringService.captureException(error, { extra: errorInfo })
+    // Route through monitoring sink — in __DEV__ this logs to console,
+    // in production it goes wherever the registered sink sends it (e.g. Sentry).
+    // Never include PII in the context payload.
+    captureException(error, { componentStack: errorInfo.componentStack })
   }
 
   private handleReset = () => {
