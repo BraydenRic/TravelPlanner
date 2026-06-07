@@ -238,7 +238,7 @@ describe('realtime — callbacks', () => {
     expect(mockChannel.on).toHaveBeenCalledTimes(3)
   })
 
-  it('invokes onPlaceAdded with payload.new when group_places INSERT fires', () => {
+  it('invokes onPlaceAdded with full payload when group_places changes (INSERT or DELETE)', () => {
     const capturedCallbacks: Record<string, (payload: unknown) => void> = {}
     const mockChannel: { on: jest.Mock; subscribe: jest.Mock } = {
       on: jest.fn((eventType: string, config: Record<string, unknown>, cb: (p: unknown) => void) => {
@@ -254,10 +254,15 @@ describe('realtime — callbacks', () => {
     const onPlaceAdded = jest.fn()
     subscribeToGroup('group-payload', { onPlaceAdded })
 
-    const newRow = { id: 'place-1', group_id: 'group-payload', country_code: 'JP' }
-    capturedCallbacks.onPlaceAdded?.({ new: newRow })
+    // The subscription forwards the entire payload now so DELETE events
+    // (which have no `new` row) can also trigger a map refresh.
+    const payload = {
+      eventType: 'INSERT',
+      new: { id: 'place-1', group_id: 'group-payload', country_code: 'JP' },
+    }
+    capturedCallbacks.onPlaceAdded?.(payload)
 
-    expect(onPlaceAdded).toHaveBeenCalledWith(newRow)
+    expect(onPlaceAdded).toHaveBeenCalledWith(payload)
   })
 
   it('invokes onMemberChanged with the full payload when group_members changes', () => {

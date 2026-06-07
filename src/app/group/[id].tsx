@@ -17,7 +17,13 @@ import { router, useLocalSearchParams } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { useGroupStore } from '@stores/groupStore'
 import { useAuthStore } from '@stores/authStore'
-import { getGroup, getGroupMapData, leaveGroup, generateNewInviteCode } from '@services/groups'
+import {
+  getGroup,
+  getGroupMapData,
+  leaveGroup,
+  generateNewInviteCode,
+  toggleGroupCountry,
+} from '@services/groups'
 import { getProfileById } from '@services/profiles'
 import { subscribeToGroup } from '@lib/realtime'
 import { colors } from '@theme/colors'
@@ -33,6 +39,7 @@ export default function GroupDetailScreen() {
   const { groups, groupMembers, groupMapData, addGroup, setGroupMembers, setGroupMapData, removeGroup } = useGroupStore()
   const { user } = useAuthStore()
   const [activeTab, setActiveTab] = useState<'map' | 'members'>('map')
+  const [showLabels, setShowLabels] = useState(false)
   const [loading, setLoading] = useState(true)
   const [profiles, setProfiles] = useState<Record<string, Profile>>({})
   const [inviteCode, setInviteCode] = useState<string | null>(null)
@@ -113,6 +120,26 @@ export default function GroupDetailScreen() {
       router.replace('/(tabs)/groups')
     }
   }, [])
+
+  // Tapping a country toggles the current user's "want to go" mark for the
+  // group trip. This writes to group_places (completely separate from the
+  // user's personal visited_places), so the group map only shows trip plans
+  // that members explicitly added here.
+  const handleCountryPress = useCallback(
+    (countryCode: string) => {
+      if (!user || !id) return
+      if (Platform.OS !== 'web') void Haptics.selectionAsync()
+      void (async () => {
+        try {
+          await toggleGroupCountry(user.id, id, countryCode)
+          await refetchMap()
+        } catch {
+          // non-fatal — realtime will heal on next event
+        }
+      })()
+    },
+    [user, id, refetchMap],
+  )
 
   const handleCopyCode = useCallback(async () => {
     if (!inviteCode) return
@@ -227,12 +254,55 @@ export default function GroupDetailScreen() {
 
       {activeTab === 'map' && (
         <View style={styles.mapContainer}>
+          {/* Header row above the map — hint on the left, labels toggle on the
+              right. Inline (not absolute) so it's always visible regardless of
+              what the map's SVG renders. */}
+          <View style={styles.mapHeader}>
+            <Text style={styles.mapHint} numberOfLines={2}>
+              Tap a country to mark it. Each member&apos;s color appears.
+            </Text>
+            <Pressable
+              onPress={() => {
+                if (Platform.OS !== 'web') void Haptics.selectionAsync()
+                setShowLabels((v) => !v)
+              }}
+              style={[styles.labelsToggle, showLabels && styles.labelsToggleActive]}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: showLabels }}
+              accessibilityLabel="Toggle country name labels"
+            >
+              <View
+                style={[styles.toggleDot, showLabels && styles.toggleDotActive]}
+              />
+              <Text
+                style={[styles.labelsToggleText, showLabels && styles.labelsToggleTextActive]}
+              >
+                {showLabels ? 'Labels on' : 'Labels off'}
+              </Text>
+            </Pressable>
+          </View>
           <WorldMap
             visitedCountries={[]}
             activeCategory="been"
             groupMapData={mapData}
-            onCountryPress={() => {}}
+            onCountryPress={handleCountryPress}
+            showAllLabels={showLabels}
           />
+          {/* Member color legend so users can read the map */}
+          {members.length > 0 && (
+            <View style={styles.mapLegend}>
+              {members.map((m) => {
+                const profile = profiles[m.user_id]
+                const name = profile?.display_name ?? 'Member'
+                return (
+                  <View key={m.id} style={styles.legendChip}>
+                    <View style={[styles.legendDot, { backgroundColor: m.color }]} />
+                    <Text style={styles.legendLabel} numberOfLines={1}>{name}</Text>
+                  </View>
+                )
+              })}
+            </View>
+          )}
         </View>
       )}
 
@@ -390,6 +460,87 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     flex: 1,
+  },
+  mapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  mapHint: {
+    flex: 1,
+    fontFamily: fontFamily.body,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+  },
+  labelsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    minHeight: 36,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.bgL2,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  labelsToggleActive: {
+    borderColor: colors.accentTeal,
+    backgroundColor: colors.tealAlpha15,
+  },
+  toggleDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.textTertiary,
+  },
+  toggleDotActive: {
+    backgroundColor: colors.accentTeal,
+  },
+  labelsToggleText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    letterSpacing: 0.3,
+  },
+  labelsToggleTextActive: {
+    color: colors.accentTeal,
+  },
+  mapLegend: {
+    position: 'absolute',
+    bottom: spacing.lg,
+    left: spacing.lg,
+    right: spacing.lg,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    padding: spacing.sm,
+    backgroundColor: colors.darkOverlay85,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    justifyContent: 'center',
+  },
+  legendChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendLabel: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.xs,
+    color: colors.textPrimary,
+    maxWidth: 80,
   },
   membersContent: {
     padding: spacing.lg,

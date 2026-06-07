@@ -20,12 +20,14 @@ export function subscribeToGroup(
     .on(
       'postgres_changes',
       {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'group_places',
         filter: `group_id=eq.${groupId}`,
       },
-      (payload) => callbacks.onPlaceAdded?.(payload.new as Record<string, unknown>),
+      // Fires for INSERT, UPDATE, and DELETE so toggling a country off
+      // also propagates to other group members in real time.
+      (payload) => callbacks.onPlaceAdded?.(payload as unknown as Record<string, unknown>),
     )
     .on(
       'postgres_changes',

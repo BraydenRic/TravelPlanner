@@ -360,11 +360,14 @@ describe('getGroupMembers', () => {
 describe('getGroupMapData', () => {
   it('calls get_group_map_data RPC and returns results', async () => {
     const mockRpc = mockSupabase.rpc as jest.Mock
-    const mapData = [
+    const places = [
       { user_id: 'user-123', country_code: 'JP', color: '#00F5D4' },
       { user_id: 'user-456', country_code: 'FR', color: '#F5A623' },
     ]
-    mockRpc.mockResolvedValueOnce({ data: mapData, error: null })
+    mockRpc.mockResolvedValueOnce({
+      data: { group_id: 'group-123', members: [], places },
+      error: null,
+    })
 
     const result = await getGroupMapData('group-123')
 

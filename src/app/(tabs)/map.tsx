@@ -5,7 +5,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { useUIStore } from '@stores/uiStore'
 import { usePlacesStore } from '@stores/placesStore'
 import { useAuthStore } from '@stores/authStore'
@@ -71,6 +72,7 @@ export default function MapScreen() {
   const { user } = useAuthStore()
   const [drillDownCityData, setDrillDownCityData] = useState<City[]>([])
   const [ratingFormError, setRatingFormError] = useState<string | null>(null)
+  const [showLabels, setShowLabels] = useState(false)
   const [mapInitialRatings, setMapInitialRatings] = useState<Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>>>({})
 
   // Load all places from DB when authenticated
@@ -261,6 +263,7 @@ export default function MapScreen() {
           activeCategory={activeCategory}
           onCountryPress={handleCountryPress}
           selectedCountry={activeDrillDownCountry ?? undefined}
+          showAllLabels={showLabels}
           testID="world-map"
         />
       )}
@@ -301,6 +304,32 @@ export default function MapScreen() {
           <View style={styles.statChip}>
             <Text style={styles.statText}>{statLabel}</Text>
           </View>
+        </View>
+      )}
+
+      {/* Labels toggle — bottom right. Same glass style as the stat chip so
+          they read as a matched pair of map controls. */}
+      {!activeDrillDownCountry && (
+        <View style={styles.bottomRight} pointerEvents="box-none">
+          <Pressable
+            onPress={() => {
+              if (Platform.OS !== 'web') void Haptics.selectionAsync()
+              setShowLabels((v) => !v)
+            }}
+            style={[styles.labelsChip, showLabels && styles.labelsChipActive]}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: showLabels }}
+            accessibilityLabel="Toggle country name labels"
+          >
+            <View
+              style={[styles.toggleDot, showLabels && styles.toggleDotActive]}
+            />
+            <Text
+              style={[styles.labelsChipText, showLabels && styles.labelsChipTextActive]}
+            >
+              {showLabels ? 'Labels on' : 'Labels off'}
+            </Text>
+          </Pressable>
         </View>
       )}
 
@@ -346,6 +375,12 @@ const styles = StyleSheet.create({
     left: spacing.md,
     zIndex: 10,
   },
+  bottomRight: {
+    position: 'absolute',
+    bottom: spacing.md,
+    right: spacing.md,
+    zIndex: 10,
+  },
   statChip: {
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md + 2,
@@ -359,5 +394,39 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textPrimary,
     letterSpacing: 0.2,
+  },
+  labelsChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md + 2,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.darkOverlay90,
+    borderWidth: 1,
+    borderColor: colors.whiteAlpha22,
+    minHeight: 36,
+  },
+  labelsChipActive: {
+    borderColor: colors.accentTeal,
+    backgroundColor: colors.tealAlpha15,
+  },
+  toggleDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.textTertiary,
+  },
+  toggleDotActive: {
+    backgroundColor: colors.accentTeal,
+  },
+  labelsChipText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.sm,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  labelsChipTextActive: {
+    color: colors.accentTeal,
   },
 })

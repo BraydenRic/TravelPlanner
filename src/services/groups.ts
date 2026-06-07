@@ -256,5 +256,53 @@ export async function getGroupMapData(groupId: string): Promise<GroupMemberPlace
   })
 
   if (error) throw handleSupabaseError(error)
-  return (data ?? []) as GroupMemberPlace[]
+  // The RPC returns a JSONB object: { group_id, members, places }.
+  // We only consume `places` here — members come from getGroup().
+  const payload = data as { places?: GroupMemberPlace[] } | null
+  return payload?.places ?? []
+}
+
+// ---------------------------------------------------------------------------
+// toggleGroupCountry — add or remove the caller's "want to go" mark for a
+// country on the group's collaborative map. Each member's marks live in
+// group_places and are completely isolated from their personal visited_places.
+// ---------------------------------------------------------------------------
+
+export async function toggleGroupCountry(
+  userId: string,
+  groupId: string,
+  countryCode: string,
+): Promise<boolean> {
+  const code = countryCode.toUpperCase()
+
+  // Look for an existing mark from this user for this country in this group.
+  const { data: existing, error: lookupError } = await supabase
+    .from('group_places')
+    .select('id')
+    .eq('group_id', groupId)
+    .eq('user_id', userId)
+    .eq('country_code', code)
+    .eq('category', 'want_to_go')
+    .maybeSingle()
+
+  if (lookupError) throw handleSupabaseError(lookupError)
+
+  if (existing) {
+    const { error: deleteError } = await supabase
+      .from('group_places')
+      .delete()
+      .eq('id', (existing as { id: string }).id)
+    if (deleteError) throw handleSupabaseError(deleteError)
+    return false
+  }
+
+  const { error: insertError } = await supabase.from('group_places').insert({
+    group_id: groupId,
+    user_id: userId,
+    country_code: code,
+    city_id: null,
+    category: 'want_to_go',
+  })
+  if (insertError) throw handleSupabaseError(insertError)
+  return true
 }
