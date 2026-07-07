@@ -5,7 +5,7 @@
  * defined in supabase/migrations/002_database_functions.sql.
  */
 
-import type { MemberColor, PlaceCategory, PlacePhoto, RatingCategory } from './database';
+import type { MemberColor, PlaceCategory, RatingCategory } from './database';
 
 // ---------------------------------------------------------------------------
 // Country rating aggregations
@@ -116,26 +116,6 @@ export interface CityCityStatus {
   is_visited: boolean;
   category: PlaceCategory | null;
   overall_score: number | null;
-}
-
-// ---------------------------------------------------------------------------
-// Timeline
-// ---------------------------------------------------------------------------
-
-/**
- * A single entry in the user's travel timeline.
- * Used by the timeline screen to show chronological travel history.
- */
-export interface TimelineEntry {
-  id: string;
-  country_code: string;
-  city_id: string | null;
-  city_name: string | null;
-  category: PlaceCategory;
-  visited_date: string | null;
-  overall_score: number | null;
-  photos: PlacePhoto[];
-  review: string | null;
 }
 
 // ---------------------------------------------------------------------------

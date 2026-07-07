@@ -12,7 +12,6 @@ A dark-themed cross-platform travel logging and rating app built with React Nati
 - **Interactive World Map** — color-coded by visit status and rating intensity
 - **City-Level Ratings** — rate any of 1,000+ cities across 10 categories (safety, food, transport, etc.)
 - **Group Travel** — create squads of up to 4, share maps, compare ratings side-by-side
-- **Travel Timeline** — chronological log of every trip with photos and notes
 - **Trip Planning** — wishlist countries with dates and budget tracking
 - **Achievements** — unlock badges as you explore the world
 - **Offline-First** — all changes queue and sync when back online

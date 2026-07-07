@@ -1,5 +1,5 @@
 /**
- * Country detail page — hero, ratings, city list, timeline.
+ * Country detail page — hero, ratings, city list.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
