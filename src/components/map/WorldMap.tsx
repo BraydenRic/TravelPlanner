@@ -140,6 +140,18 @@ if (Platform.OS === 'web') {
     CZ: 'Czechia',
   }
 
+  // d3-zoom filter: keep wheel-zoom and drag-pan, but drop dblclick so a
+  // quick double-tap while marking countries never zooms the map. Module-level
+  // constant — it's in ZoomableGroup's effect deps, so an inline arrow would
+  // re-bind the zoom behavior on every render.
+  // Mirrors d3-zoom's default filter (ignore ctrl+wheel pinch and non-left
+  // buttons) with the dblclick exclusion added.
+  const filterZoomEvent = (event: { type?: string; ctrlKey?: boolean; button?: number }) => {
+    if (!event) return false
+    if (event.type === 'dblclick') return false
+    return !event.ctrlKey && !event.button
+  }
+
   // Natural Earth 110m GeoJSON — has ISO_A2 property per feature.
   // 110m keeps the SVG path data small enough that the browser can
   // re-render all 195 countries smoothly during zoom/pan. We sharpen the
@@ -266,6 +278,7 @@ if (Platform.OS === 'web') {
             center={position.coordinates}
             onMoveEnd={handleMoveEnd}
             maxZoom={12}
+            filterZoomEvent={filterZoomEvent}
           >
           <Geographies geography={GEO_URL}>
             {({
