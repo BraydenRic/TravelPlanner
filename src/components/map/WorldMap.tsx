@@ -44,13 +44,16 @@ function getCountryFill(
     return colors.mapLand
   }
 
-  const opacity = 0.2 + fillData.fill_ratio * 0.8
+  // Cap fill opacity below 1 so the white country borders always read on top
+  // — at full opacity two adjacent highlighted countries used to merge into
+  // one blob with an invisible shared border.
+  const opacity = 0.2 + fillData.fill_ratio * 0.65
 
   switch (activeCategory) {
     case 'been':
       return `rgba(0,245,212,${opacity.toFixed(2)})`
     case 'want_to_go':
-      return `rgba(167,139,250,0.8)`
+      return `rgba(167,139,250,0.7)`
     case 'lived':
       return `rgba(245,166,35,0.6)`
     default:
@@ -140,6 +143,35 @@ if (Platform.OS === 'web') {
     CZ: 'Czechia',
   }
 
+  // Label anchors are cached — geographies never change after load. For
+  // MultiPolygon countries the anchor is the centroid of the LARGEST
+  // landmass, not the whole feature: an archipelago's combined centroid
+  // (Indonesia, Japan, Philippines) often lands in open water, which made
+  // labels look like they were floating beside their country.
+  const labelAnchorCache = new Map<string, [number, number]>()
+  function interiorCentroid(geo: {
+    rsmKey: string
+    geometry?: { type?: string; coordinates?: unknown[] }
+  }): [number, number] {
+    const cached = labelAnchorCache.get(geo.rsmKey)
+    if (cached) return cached
+    let target: unknown = geo
+    if (geo.geometry?.type === 'MultiPolygon' && Array.isArray(geo.geometry.coordinates)) {
+      let bestArea = -1
+      for (const coords of geo.geometry.coordinates) {
+        const candidate = { type: 'Feature', geometry: { type: 'Polygon', coordinates: coords } }
+        const area = geoArea(candidate) as number
+        if (area > bestArea) {
+          bestArea = area
+          target = candidate
+        }
+      }
+    }
+    const centroid = geoCentroid(target) as [number, number]
+    labelAnchorCache.set(geo.rsmKey, centroid)
+    return centroid
+  }
+
   // d3-zoom filter: keep wheel-zoom and drag-pan, but drop dblclick so a
   // quick double-tap while marking countries never zooms the map. Module-level
   // constant — it's in ZoomableGroup's effect deps, so an inline arrow would
@@ -193,8 +225,11 @@ if (Platform.OS === 'web') {
         style={{
           default: {
             fill,
-            stroke: 'rgba(255,255,255,0.6)',
-            strokeWidth: 0.6,
+            // Brighter than the fills' effective luminance so shared borders
+            // stay visible between two adjacent highlighted countries; fills
+            // are capped below full opacity for the same reason.
+            stroke: 'rgba(255,255,255,0.85)',
+            strokeWidth: 0.8,
             outline: 'none',
             cursor: 'pointer',
             transition: 'fill 200ms',
@@ -249,30 +284,6 @@ if (Platform.OS === 'web') {
           projectionConfig={{ scale: 160, center: [0, 10] }}
           style={COMPOSABLE_MAP_STYLE}
         >
-          {/* SVG pattern defs — one diagonal-stripe pattern per country with 2+ members.
-              Single-member countries use their solid color directly (no pattern needed). */}
-          {multiMemberEntries.length > 0 && (
-            <defs>
-              {multiMemberEntries.map(([code, memberColors]) => {
-                const stripe = 8
-                const width = stripe * memberColors.length
-                return (
-                  <pattern
-                    key={code}
-                    id={groupPatternId(code)}
-                    patternUnits="userSpaceOnUse"
-                    width={width}
-                    height={stripe}
-                    patternTransform="rotate(45)"
-                  >
-                    {memberColors.map((c, i) => (
-                      <rect key={c} x={i * stripe} y={0} width={stripe} height={stripe} fill={c} />
-                    ))}
-                  </pattern>
-                )
-              })}
-            </defs>
-          )}
           <ZoomableGroup
             zoom={position.zoom}
             center={position.coordinates}
@@ -287,6 +298,7 @@ if (Platform.OS === 'web') {
               geographies: {
                 rsmKey: string
                 properties: { ISO_A2: string; ADM0_A3: string; NAME?: string }
+                geometry?: { type?: string; coordinates?: unknown[] }
               }[]
             }) => {
               // Resolve the 2-letter code once per feature (the Natural Earth
@@ -309,6 +321,45 @@ if (Platform.OS === 'web') {
 
               return (
                 <>
+                  {/* Stripe pattern defs live inside the render prop so each
+                      pattern can scale with its country's projected footprint:
+                      a fixed 8px stripe reads fine on Russia but swallows a
+                      country the size of Belgium whole. 160 ≈ projection
+                      scale; sqrt(steradian area) × scale ≈ on-screen width. */}
+                  {multiMemberEntries.length > 0 && (
+                    <defs>
+                      {multiMemberEntries.map(([code, memberColors]) => {
+                        const geoForCode = renderable.find((r) => r.code === code)?.geo
+                        const approxWidth = geoForCode
+                          ? Math.sqrt(geoArea(geoForCode) as number) * 160
+                          : 60
+                        const stripe = Math.max(2, Math.min(8, approxWidth / 12))
+                        const width = stripe * memberColors.length
+                        return (
+                          <pattern
+                            key={code}
+                            id={groupPatternId(code)}
+                            patternUnits="userSpaceOnUse"
+                            width={width}
+                            height={stripe}
+                            patternTransform="rotate(45)"
+                          >
+                            {memberColors.map((c, i) => (
+                              <rect
+                                key={c}
+                                x={i * stripe}
+                                y={0}
+                                width={stripe}
+                                height={stripe}
+                                fill={c}
+                                opacity={0.8}
+                              />
+                            ))}
+                          </pattern>
+                        )
+                      })}
+                    </defs>
+                  )}
                   {renderable.map(({ geo, code }) => {
                     let fill: string
                     if (groupColors) {
@@ -316,7 +367,9 @@ if (Platform.OS === 'web') {
                       if (!memberColors || memberColors.length === 0) {
                         fill = colors.mapLand
                       } else if (memberColors.length === 1) {
-                        fill = memberColors[0]
+                        // CC = ~80% alpha — keeps member colors just dim
+                        // enough that shared white borders stay visible
+                        fill = `${memberColors[0]}CC`
                       } else {
                         fill = `url(#${groupPatternId(code)})`
                       }
@@ -358,8 +411,7 @@ if (Platform.OS === 'web') {
                         if (!name) return null
 
                         const centroid =
-                          LABEL_CENTROID_OVERRIDES[code] ??
-                          (geoCentroid(geo) as [number, number] | undefined)
+                          LABEL_CENTROID_OVERRIDES[code] ?? interiorCentroid(geo)
                         if (!centroid || Number.isNaN(centroid[0])) return null
 
                         const isMarked = groupColors
@@ -369,29 +421,39 @@ if (Platform.OS === 'web') {
 
                         // Two-stage label sizing:
                         //   1) Hard skip for countries below an area threshold
-                        //      (Cyprus, Singapore, Vatican etc. at low zoom).
+                        //      (Cyprus, Singapore, Vatican etc. at low zoom) —
+                        //      their labels can't fit inside them, and a label
+                        //      hovering NEXT to a speck reads as clutter.
                         //   2) Fit-to-width font with a readable floor so
                         //      medium countries (Germany, Italy, Poland) get
                         //      proportionally smaller labels but stay labeled.
-                        // 160 ≈ Natural Earth projection scale. 0.55 ≈ avg
-                        // char width / fontSize for Inter.
+                        // 160 ≈ Natural Earth projection scale. 0.62 ≈ avg
+                        // char width / fontSize for uppercase Inter.
                         const area = geoArea(geo) as number
-                        const minArea = 0.0008 / (position.zoom * position.zoom)
+                        const minArea = 0.0018 / (position.zoom * position.zoom)
                         if (area < minArea) return null
 
                         labeledCodes.add(code)
 
-                        const baseSize = isMarked ? 11 : 7
+                        const label = name.toUpperCase()
+                        const baseSize = isMarked ? 10 : 7
                         const approxCountryWidth = Math.sqrt(area) * 160
-                        const charWidth = name.length * 0.55
+                        const charWidth = label.length * 0.62
                         const maxFontByWidth = approxCountryWidth / charWidth
                         // Fit-to-width, clamped between a readable floor and
                         // the base size so large countries don't get oversized
                         // labels and small countries stay visible.
-                        const sized = Math.max(3, Math.min(baseSize, maxFontByWidth))
+                        const sized = Math.max(3.5, Math.min(baseSize, maxFontByWidth))
                         const fontSize = Math.max(2, sized / position.zoom)
-                        const fillColor = isMarked ? '#FFFFFF' : 'rgba(255,255,255,0.78)'
-                        const strokeWidth = labelSize(isMarked ? 0.9 : 0.6)
+                        // Cartographic "printed on the map" treatment:
+                        // translucent fill + whisper of a dark halo instead of
+                        // the old heavy black outline, uppercase with tracking.
+                        // The country color shows through, so the label reads
+                        // as part of the terrain rather than a sticker on top.
+                        const fillColor = isMarked
+                          ? 'rgba(255,255,255,0.95)'
+                          : 'rgba(255,255,255,0.45)'
+                        const strokeWidth = labelSize(isMarked ? 0.45 : 0.3)
 
                         return (
                           <Marker key={`label-${code}`} coordinates={centroid}>
@@ -400,14 +462,15 @@ if (Platform.OS === 'web') {
                               dominantBaseline="middle"
                               fontSize={fontSize}
                               fontFamily="Inter, system-ui, sans-serif"
-                              fontWeight={isMarked ? 700 : 500}
+                              fontWeight={isMarked ? 600 : 500}
+                              letterSpacing={fontSize * 0.08}
                               fill={fillColor}
-                              stroke="rgba(0,0,0,0.9)"
+                              stroke="rgba(7,8,13,0.55)"
                               strokeWidth={strokeWidth}
                               paintOrder="stroke fill"
                               style={LABEL_TEXT_STYLE}
                             >
-                              {name}
+                              {label}
                             </text>
                           </Marker>
                         )
