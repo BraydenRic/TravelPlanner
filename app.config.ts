@@ -42,7 +42,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   web: {
     bundler: 'metro',
-    output: 'server',
+    // 'static' pre-renders each route to HTML and needs no Node server —
+    // matches the static-hosting setup in vercel.json ('server' output
+    // would require the Vercel adapter / a running server).
+    output: 'static',
     favicon: './assets/icons/favicon.png',
   },
   plugins: [
