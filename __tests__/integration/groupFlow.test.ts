@@ -89,9 +89,11 @@ describe('Group flow — full join flow', () => {
       invite_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     })
 
-    // createGroup: insert group → insert creator member → rpc('generate_invite_code')
+    // createGroup: group-limit pre-check → insert group → insert creator member
+    // → rpc('generate_invite_code')
     const groupChain = mockChain({ data: group, error: null })
     groupChain.single = jest.fn().mockResolvedValue({ data: group, error: null })
+    getMockFrom().mockReturnValueOnce(mockChain({ data: [], error: null })) // limit pre-check
     getMockFrom().mockReturnValueOnce(groupChain)
     getMockFrom().mockReturnValueOnce(mockChain({ data: null, error: null })) // insert creator member
     getMockRpc().mockResolvedValueOnce({ data: inviteCode, error: null }) // generate_invite_code

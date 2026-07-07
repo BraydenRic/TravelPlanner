@@ -5,6 +5,7 @@
  *   - Group names are validated and sanitized before storage (AS-06)
  *   - Invite code validation uses the 32-char hex schema (AS-05)
  *   - Max 4 members enforced by DB trigger; service also checks pre-emptively
+ *   - Max 10 groups per user enforced by DB trigger + join RPC (migration 014)
  *   - Creator transfer logic prevents orphaned groups
  */
 
@@ -20,6 +21,10 @@ import type { GroupMemberPlace } from '@typedefs/api'
 // ---------------------------------------------------------------------------
 
 export const MEMBER_COLORS: MemberColor[] = ['#00F5D4', '#F5A623', '#A78BFA', '#FF6B6B']
+
+// Max groups a single user can belong to. Must match the DB-side limit in
+// enforce_user_group_limit() and join_group_by_code() (migration 014).
+export const MAX_GROUPS_PER_USER = 10
 
 // ---------------------------------------------------------------------------
 // assignNextColor — returns first unused color
@@ -38,6 +43,23 @@ export function assignNextColor(existingColors: MemberColor[]): MemberColor {
 export async function createGroup(userId: string, name: string): Promise<Group> {
   const sanitizedName = sanitizeGroupName(name)
   groupNameSchema.parse(sanitizedName)
+
+  // Pre-check the per-user group limit BEFORE inserting the group row.
+  // The DB trigger only fires on the group_members insert, which would
+  // otherwise leave an orphaned group behind when the limit is hit.
+  const { data: memberships, error: membershipError } = await supabase
+    .from('group_members')
+    .select('group_id')
+    .eq('user_id', userId)
+
+  if (membershipError) throw handleSupabaseError(membershipError)
+
+  if ((memberships ?? []).length >= MAX_GROUPS_PER_USER) {
+    throw new ApiError(
+      'GROUP_LIMIT',
+      `You can be in at most ${MAX_GROUPS_PER_USER} groups. Leave a group to create a new one.`,
+    )
+  }
 
   // Insert group without invite code — generate_invite_code RPC sets it
   const { data: group, error: groupError } = await supabase
@@ -144,6 +166,7 @@ export async function joinGroup(_userId: string, inviteCode: string): Promise<Gr
     if (msg.includes('invalid_invite_code')) throw new ApiError('NOT_FOUND', 'Invalid invite code.')
     if (msg.includes('invite_expired')) throw new ApiError('INVITE_EXPIRED', 'This invite has expired.')
     if (msg.includes('already_member')) throw new ApiError('VALIDATION_ERROR', 'You are already in this group.')
+    if (msg.includes('group_limit_reached')) throw new ApiError('GROUP_LIMIT', `You can be in at most ${MAX_GROUPS_PER_USER} groups. Leave a group to join a new one.`)
     if (msg.includes('group_full')) throw new ApiError('GROUP_FULL', 'This group is full (max 4 members).')
     throw handleSupabaseError(error)
   }

@@ -90,10 +90,12 @@ describe('assignNextColor', () => {
 describe('createGroup', () => {
   it('creates a group and adds creator as member with teal', async () => {
     const group = createMockGroup()
+    const limitChain = mockChain({ data: [], error: null })
     const groupChain = mockChain({ data: group, error: null })
     const memberChain = mockChain({ data: null, error: null })
 
     getMockFrom()
+      .mockReturnValueOnce(limitChain) // group_members limit pre-check
       .mockReturnValueOnce(groupChain) // groups insert
       .mockReturnValueOnce(memberChain) // group_members insert
     getMockRpc().mockResolvedValueOnce({ data: 'ABCD1234', error: null })
@@ -111,10 +113,12 @@ describe('createGroup', () => {
 
   it('sanitizes group name before insert', async () => {
     const group = createMockGroup({ name: 'My Group' })
+    const limitChain = mockChain({ data: [], error: null })
     const groupChain = mockChain({ data: group, error: null })
     const memberChain = mockChain({ data: null, error: null })
 
     getMockFrom()
+      .mockReturnValueOnce(limitChain)
       .mockReturnValueOnce(groupChain)
       .mockReturnValueOnce(memberChain)
     getMockRpc().mockResolvedValueOnce({ data: 'ABCD1234', error: null })
@@ -136,6 +140,15 @@ describe('createGroup', () => {
 
   it('throws validation error for empty name', async () => {
     await expect(createGroup('user-123', '')).rejects.toThrow()
+  })
+
+  it('throws GROUP_LIMIT when the user is already in 10 groups', async () => {
+    const memberships = Array.from({ length: 10 }, (_, i) => ({ group_id: `group-${i}` }))
+    getMockFrom().mockReturnValueOnce(mockChain({ data: memberships, error: null }))
+
+    await expect(
+      createGroup('user-123', 'Travel Crew'),
+    ).rejects.toMatchObject({ code: 'GROUP_LIMIT' })
   })
 })
 
@@ -167,6 +180,13 @@ describe('joinGroup', () => {
     await expect(
       joinGroup('user-456', 'ABCD1234'),
     ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+  })
+
+  it('maps group_limit_reached RPC error to GROUP_LIMIT ApiError', async () => {
+    getMockRpc().mockResolvedValueOnce({ data: null, error: { message: 'group_limit_reached' } })
+    await expect(
+      joinGroup('user-456', 'ABCD1234'),
+    ).rejects.toMatchObject({ code: 'GROUP_LIMIT' })
   })
 
   it('maps group_full RPC error to GROUP_FULL ApiError', async () => {

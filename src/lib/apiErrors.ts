@@ -23,6 +23,7 @@ export type ApiErrorCode =
   | 'FORBIDDEN'         // Authenticated but not permitted (RLS violation)
   | 'NOT_FOUND'         // Resource does not exist (or RLS hides it)
   | 'GROUP_FULL'        // Group member limit (4) reached
+  | 'GROUP_LIMIT'       // Per-user group limit (10) reached
   | 'INVITE_EXPIRED'    // Group invite code expired or already used
   | 'VALIDATION_ERROR'  // Input failed DB-level constraint
   | 'RATE_LIMITED'      // Too many requests
@@ -73,6 +74,11 @@ export function handleSupabaseError(error: PostgrestError): ApiError {
   // Group member limit trigger (enforce_group_member_limit in migration 001)
   if (error.message?.includes('Group is full')) {
     return new ApiError('GROUP_FULL', 'This group is full (max 4 members)', error)
+  }
+
+  // Per-user group limit trigger (enforce_user_group_limit in migration 014)
+  if (error.message?.includes('group_limit_reached')) {
+    return new ApiError('GROUP_LIMIT', 'You can be in at most 10 groups', error)
   }
 
   // Invite code expired or already used (checked in join_group DB function)
