@@ -16,6 +16,7 @@ import { supabase } from '@lib/supabase'
 import { useAuthStore } from '@stores/authStore'
 import { usePlacesStore } from '@stores/placesStore'
 import { ErrorBoundary } from '@lib/errorBoundary'
+import { initMonitoring } from '@lib/sentry'
 import { getProfile } from '@services/profiles'
 import { getPlaces } from '@services/places'
 import type { VisitedPlace } from '@typedefs/database'
@@ -31,6 +32,11 @@ export default function RootLayout() {
     Inter_700Bold,
     SpaceMono_400Regular,
   })
+
+  // Error monitoring — no-op without EXPO_PUBLIC_SENTRY_DSN
+  useEffect(() => {
+    initMonitoring()
+  }, [])
 
   // Auth state listener — sets user, only redirects on explicit sign-out
   useEffect(() => {
