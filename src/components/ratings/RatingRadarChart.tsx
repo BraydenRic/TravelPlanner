@@ -182,9 +182,10 @@ function RatingRadarChartInner({
         {/* Center dot */}
         <Circle cx={cx} cy={cy} r={2} fill={colors.accentTeal} opacity={0.6} />
 
-        {/* Category labels */}
+        {/* Category labels — medium weight and primary color: at radar-label
+            sizes anything dimmer disappears into the dark bg */}
         {RATING_CATEGORIES.map((cat, i) => {
-          const labelR = maxR + 16
+          const labelR = maxR + 18
           const pt = polarToCartesian(cx, cy, labelR, i, NUM_AXES)
           const isRight = pt.x > cx + 10
           const isLeft = pt.x < cx - 10
@@ -195,11 +196,11 @@ function RatingRadarChartInner({
             <SvgText
               key={cat.key}
               x={pt.x}
-              y={pt.y + 3}
-              fontSize={8}
-              fill={colors.textTertiary}
+              y={pt.y + 4}
+              fontSize={11}
+              fill={colors.textPrimary}
               textAnchor={textAnchor}
-              fontFamily={fontFamily.body}
+              fontFamily={fontFamily.medium}
             >
               {shortLabel}
             </SvgText>

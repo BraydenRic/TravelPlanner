@@ -116,11 +116,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     minHeight: 24,
   },
+  // Label/score readability: 13px medium in primary color — 11px regular
+  // gray was too faint against the dark background at this size.
   label: {
-    fontFamily: fontFamily.body,
-    fontSize: fontSize.xs,
-    color: colors.textSecondary,
-    width: 120,
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.textPrimary,
+    width: 150,
     flexShrink: 1,
   },
   barTrack: {
@@ -138,9 +140,9 @@ const styles = StyleSheet.create({
   },
   score: {
     fontFamily: fontFamily.mono,
-    fontSize: fontSize.xs,
+    fontSize: fontSize.sm,
     color: colors.textPrimary,
-    width: 24,
+    width: 30,
     textAlign: 'right',
   },
 })
