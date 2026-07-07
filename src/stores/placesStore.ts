@@ -7,6 +7,12 @@ interface PlacesState {
   fillIntensity: CountryFillIntensity[]
   isLoading: boolean
   error: string | null
+  /**
+   * True once the initial server fetch has landed (even if it returned zero
+   * places). Screens use this to distinguish "still loading" from "genuinely
+   * empty" — places.length alone can't tell those apart.
+   */
+  hydrated: boolean
   // Actions
   setPlaces: (places: VisitedPlace[]) => void
   addPlace: (place: VisitedPlace) => void
@@ -23,8 +29,9 @@ export const usePlacesStore = create<PlacesState>((set, get) => ({
   fillIntensity: [],
   isLoading: false,
   error: null,
+  hydrated: false,
 
-  setPlaces: (places) => set({ places }),
+  setPlaces: (places) => set({ places, hydrated: true }),
 
   addPlace: (place) => set((state) => ({ places: [place, ...state.places] })),
 
@@ -48,5 +55,6 @@ export const usePlacesStore = create<PlacesState>((set, get) => ({
         (cityId === null ? p.city_id === null : p.city_id === cityId),
     ),
 
-  reset: () => set({ places: [], fillIntensity: [], isLoading: false, error: null }),
+  reset: () =>
+    set({ places: [], fillIntensity: [], isLoading: false, error: null, hydrated: false }),
 }))

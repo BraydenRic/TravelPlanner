@@ -23,7 +23,7 @@ import { useGroupStore } from '@stores/groupStore'
 import { useAuthStore } from '@stores/authStore'
 import { getUserGroups, getGroupMembers } from '@services/groups'
 import { colors } from '@theme/colors'
-import { spacing } from '@theme/spacing'
+import { borderRadius, spacing } from '@theme/spacing'
 import { fontFamily, fontSize } from '@theme/typography'
 import { springs } from '@theme/animations'
 import { GroupCard } from '@components/cards/GroupCard'
@@ -34,10 +34,15 @@ export default function GroupsScreen() {
   const { groups, groupMembers, setGroups, setGroupMembers } = useGroupStore()
   const { user } = useAuthStore()
   const [pageLoading, setPageLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
-  // Load user's groups on mount
-  useEffect(() => {
+  // Load user's groups on mount. A failed load must be distinguishable from
+  // "no groups yet" — otherwise a network hiccup silently shows the empty
+  // state and the user thinks their groups are gone.
+  const loadGroups = useCallback(() => {
     if (!user) { setPageLoading(false); return }
+    setPageLoading(true)
+    setLoadError(false)
     void getUserGroups(user.id)
       .then(async (loaded) => {
         setGroups(loaded)
@@ -47,14 +52,18 @@ export default function GroupsScreen() {
               const members = await getGroupMembers(g.id)
               setGroupMembers(g.id, members)
             } catch {
-              // non-fatal
+              // non-fatal — cards render without avatars until realtime heals
             }
           }),
         )
       })
-      .catch(() => {})
+      .catch(() => setLoadError(true))
       .finally(() => setPageLoading(false))
   }, [user, setGroups, setGroupMembers])
+
+  useEffect(() => {
+    loadGroups()
+  }, [loadGroups])
 
   const handleNew = useCallback(() => {
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
@@ -69,6 +78,24 @@ export default function GroupsScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator color={colors.accentTeal} size="large" />
+      </View>
+    )
+  }
+
+  // Failed load with nothing cached: offer retry instead of a false empty state
+  if (loadError && groups.length === 0) {
+    return (
+      <View style={[styles.container, styles.errorContainer]}>
+        <Text style={styles.errorTitle}>Couldn&apos;t load your groups</Text>
+        <Text style={styles.errorSubtitle}>Check your connection and try again.</Text>
+        <Pressable
+          onPress={loadGroups}
+          style={styles.retryBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading groups"
+        >
+          <Text style={styles.retryBtnText}>Retry</Text>
+        </Pressable>
       </View>
     )
   }
@@ -155,6 +182,38 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgL0,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+  },
+  errorTitle: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.md,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontFamily: fontFamily.body,
+    fontSize: fontSize.base,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: spacing.md,
+    backgroundColor: colors.accentTeal,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.xl,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryBtnText: {
+    fontFamily: fontFamily.semibold,
+    fontSize: fontSize.base,
+    color: colors.bgL0,
   },
   header: {
     paddingHorizontal: spacing.lg,

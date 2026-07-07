@@ -3,12 +3,21 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import {
+  ActivityIndicator,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { usePlacesStore } from '@stores/placesStore'
 import { useGroupStore } from '@stores/groupStore'
-import { getCitiesByCountry } from '@services/places'
+import { getCitiesByCountry, getPlaces } from '@services/places'
 import { getCountryRatings } from '@services/ratings'
 import { useAuthStore } from '@stores/authStore'
 import type { CountryRatings } from '@typedefs/api'
@@ -41,11 +50,30 @@ const EMPTY_RATINGS: Record<RatingCategory, number> = {
 export default function CountryDetailScreen() {
   const { code } = useLocalSearchParams<{ code: string }>()
   const country = getCountryByCode(code)
-  const { places } = usePlacesStore()
+  const { places, setPlaces } = usePlacesStore()
   const { activeGroupId } = useGroupStore()
-  const { user } = useAuthStore()
+  const { user, isLoading: authLoading } = useAuthStore()
   const [ratingView, setRatingView] = React.useState<'personal' | 'group' | 'compare'>('personal')
   const [countryRatings, setCountryRatings] = useState<CountryRatings | null>(null)
+
+  // Normally the map tab hydrates the places store, but on a deep link or hard
+  // refresh this screen mounts first with an empty store — which used to flash
+  // "0 of N cities rated" until the user visited the map. Hydrate here too,
+  // and hold a loading state so stale zeros never render.
+  const [hydrating, setHydrating] = useState(() => !usePlacesStore.getState().hydrated)
+  useEffect(() => {
+    // While the session itself is restoring, `user` is transiently null —
+    // keep showing the loading state rather than concluding "no data".
+    if (authLoading) return
+    if (!user || usePlacesStore.getState().hydrated) {
+      setHydrating(false)
+      return
+    }
+    void getPlaces(user.id, undefined, undefined, 500)
+      .then(({ data }) => setPlaces(data))
+      .catch(() => {})
+      .finally(() => setHydrating(false))
+  }, [user, authLoading, setPlaces])
 
   const [cities, setCities] = useState<City[]>([])
   useEffect(() => {
@@ -116,6 +144,14 @@ export default function CountryDetailScreen() {
     [code],
   )
 
+  if (hydrating) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color={colors.accentTeal} size="large" />
+      </View>
+    )
+  }
+
   return (
     <ScrollView
       style={styles.container}
@@ -185,9 +221,13 @@ export default function CountryDetailScreen() {
               {entry.categories.map((cat) => (
                 <CategoryBadge key={cat} category={cat as PlaceCategory} />
               ))}
-              {entry.overallScore != null && (
-                <Text style={styles.cityScore}>{entry.overallScore.toFixed(1)}</Text>
-              )}
+              {/* Score slot always renders (— when unrated) so badges line up
+                  in a column across rows instead of drifting right */}
+              <Text
+                style={[styles.cityScore, entry.overallScore == null && styles.cityScoreEmpty]}
+              >
+                {entry.overallScore != null ? entry.overallScore.toFixed(1) : '—'}
+              </Text>
             </View>
           </Pressable>
         ))}
@@ -213,6 +253,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgL0,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: colors.bgL0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     paddingTop: spacing.xxl + spacing.md,
@@ -317,6 +363,11 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.mono,
     fontSize: fontSize.base,
     color: colors.accentAmber,
+    width: 36,
+    textAlign: 'right',
+  },
+  cityScoreEmpty: {
+    color: colors.textTertiary,
   },
   emptyText: {
     fontFamily: fontFamily.body,

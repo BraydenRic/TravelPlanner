@@ -4,6 +4,7 @@
 
 import React, { useCallback } from 'react'
 import {
+  ActivityIndicator,
   Platform,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import { FlashList } from '@shopify/flash-list'
 
 import * as Haptics from 'expo-haptics'
 import { usePlacesStore } from '@stores/placesStore'
+import { useAuthStore } from '@stores/authStore'
 import { colors } from '@theme/colors'
 import { borderRadius, spacing } from '@theme/spacing'
 import { fontFamily, fontSize } from '@theme/typography'
@@ -22,8 +24,13 @@ import { CategoryBadge } from '@components/ui/CategoryBadge'
 import { getCountryByCode } from '@constants/countries'
 
 export default function TimelineScreen() {
-  const { places } = usePlacesStore()
+  const { places, hydrated } = usePlacesStore()
+  const { user, isLoading: authLoading } = useAuthStore()
   const [refreshing, setRefreshing] = React.useState(false)
+
+  // Don't claim "no travel records" while the initial fetch (or the auth
+  // session restore before it) is still in flight — e.g. on a deep link.
+  const stillLoading = authLoading || (!!user && !hydrated)
 
   const sorted = React.useMemo(
     () =>
@@ -104,12 +111,18 @@ export default function TimelineScreen() {
     <View style={styles.header}>
       <Text style={styles.title}>Timeline</Text>
       <Text style={styles.subtitle}>
-        {sorted.length} travel record{sorted.length !== 1 ? 's' : ''}
+        {stillLoading
+          ? 'Loading…'
+          : `${sorted.length} travel record${sorted.length !== 1 ? 's' : ''}`}
       </Text>
     </View>
   )
 
-  const ListEmpty = (
+  const ListEmpty = stillLoading ? (
+    <View style={styles.empty}>
+      <ActivityIndicator color={colors.accentTeal} size="large" />
+    </View>
+  ) : (
     <View style={styles.empty}>
       <Text style={styles.emptyText}>No travel records yet.</Text>
       <Text style={styles.emptySubtext}>
