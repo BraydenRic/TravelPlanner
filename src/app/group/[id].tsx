@@ -2,7 +2,7 @@
  * Group detail — combined map, member roster, invite code sharing.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -32,7 +32,8 @@ import { fontFamily, fontSize } from '@theme/typography'
 import { GlassPanel } from '@components/ui/GlassPanel'
 import { WorldMap } from '@components/map/WorldMap'
 import { sanitizeGroupName } from '@lib/sanitize'
-import type { Profile } from '@typedefs/database'
+import type { MemberColor, Profile } from '@typedefs/database'
+import type { GroupMemberPlace } from '@typedefs/api'
 
 export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -48,8 +49,12 @@ export default function GroupDetailScreen() {
   const [regenerating, setRegenerating] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
+  // Country-toggle write tracking — see handleCountryPress for why these exist.
+  const pendingWrites = useRef(0)
+  const writeQueue = useRef<Promise<void>>(Promise.resolve())
+
   const group = useMemo(() => groups.find((g) => g.id === id), [groups, id])
-  const members = groupMembers[id] ?? []
+  const members = useMemo(() => groupMembers[id] ?? [], [groupMembers, id])
   const mapData = groupMapData[id] ?? []
 
   // Refetch helpers — used by initial load AND realtime push events.
@@ -107,7 +112,12 @@ export default function GroupDetailScreen() {
     if (!id) return
     const unsubscribe = subscribeToGroup(id, {
       onMemberChanged: () => void refetchMembers(),
-      onPlaceAdded: () => void refetchMap(),
+      // Skip refetch while our own writes are in flight — the event may be the
+      // echo of our optimistic toggle, and refetching mid-write would briefly
+      // revert the map. The queue does its own reconciling refetch on drain.
+      onPlaceAdded: () => {
+        if (pendingWrites.current === 0) void refetchMap()
+      },
     })
     return unsubscribe
   }, [id, refetchMembers, refetchMap])
@@ -125,20 +135,47 @@ export default function GroupDetailScreen() {
   // group trip. This writes to group_places (completely separate from the
   // user's personal visited_places), so the group map only shows trip plans
   // that members explicitly added here.
+  //
+  // The store is updated optimistically so the country lights up on the very
+  // frame of the tap; the DB write happens behind the scenes. Writes are
+  // serialized through a queue because toggleGroupCountry does a
+  // lookup-then-write — two concurrent toggles of the same country would both
+  // see the same state and double-insert. Once the queue drains, one silent
+  // refetch reconciles the map with server truth (and rolls back on failure).
   const handleCountryPress = useCallback(
     (countryCode: string) => {
       if (!user || !id) return
       if (Platform.OS !== 'web') void Haptics.selectionAsync()
-      void (async () => {
-        try {
-          await toggleGroupCountry(user.id, id, countryCode)
-          await refetchMap()
-        } catch {
-          // non-fatal — realtime will heal on next event
-        }
-      })()
+
+      const code = countryCode.toUpperCase()
+      const current = useGroupStore.getState().groupMapData[id] ?? []
+      const isMine = (p: GroupMemberPlace) =>
+        p.user_id === user.id && p.country_code === code && p.category === 'want_to_go'
+
+      if (current.some(isMine)) {
+        setGroupMapData(id, current.filter((p) => !isMine(p)))
+      } else {
+        const color: MemberColor =
+          members.find((m) => m.user_id === user.id)?.color ?? '#00F5D4'
+        setGroupMapData(id, [
+          ...current,
+          { user_id: user.id, color, country_code: code, city_id: null, category: 'want_to_go' },
+        ])
+      }
+
+      pendingWrites.current += 1
+      writeQueue.current = writeQueue.current
+        .then(() => toggleGroupCountry(user.id, id, code))
+        .then(
+          () => undefined,
+          () => undefined, // failure is reconciled by the refetch below
+        )
+        .finally(() => {
+          pendingWrites.current -= 1
+          if (pendingWrites.current === 0) void refetchMap()
+        })
     },
-    [user, id, refetchMap],
+    [user, id, members, setGroupMapData, refetchMap],
   )
 
   const handleCopyCode = useCallback(async () => {
