@@ -187,8 +187,14 @@ if (Platform.OS === 'web') {
             cursor: 'pointer',
             transition: 'fill 200ms',
           },
+          // Dim on hover via fillOpacity, never by rewriting the fill string:
+          // appending an alpha suffix ("#A78BFA" → "#A78BFACC") breaks for
+          // rgba() fills and for pattern fills like url(#grp-stripes-US) —
+          // the invalid paint value is silently ignored, so a country that
+          // just switched to stripes kept its stale fill until mouse-out.
           hover: {
-            fill: selected ? fill : `${fill}CC`,
+            fill,
+            fillOpacity: selected ? 1 : 0.8,
             stroke: colors.accentTeal,
             strokeWidth: 1,
             outline: 'none',
