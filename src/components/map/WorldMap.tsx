@@ -3,13 +3,13 @@
  * Web: react-simple-maps with D3 geo projections, code-split into its own
  *   async chunk (see WorldMapWeb.tsx) so the d3 dependency chain stays out
  *   of the entry bundle.
- * Mobile: Simplified SVG placeholder (full implementation requires native map SDK).
+ * Mobile: react-native-svg + d3-geo with pinch/pan gestures (WorldMapNative)
+ *   — same GeoJSON, projection, and visual treatment as the web map.
  */
 
 import React, { memo, Suspense } from 'react'
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native'
 import { colors } from '@theme/colors'
-import { fontFamily, fontSize } from '@theme/typography'
 import type { CountryFillIntensity } from '@typedefs/api'
 import type { PlaceCategory } from '@typedefs/database'
 import type { GroupMemberPlace } from '@typedefs/api'
@@ -30,45 +30,31 @@ export interface WorldMapProps {
   showAllLabels?: boolean
 }
 
-// Lazy so react-simple-maps + d3 land in an async chunk. Guarded by platform:
-// native never evaluates the import, it renders the placeholder below.
-const WebMapLazy =
-  Platform.OS === 'web' ? React.lazy(() => import('./WorldMapWeb')) : null
-
-// ---------------------------------------------------------------------------
-// Mobile SVG placeholder
-// ---------------------------------------------------------------------------
-
-const MobileMap = memo(function MobileMap({ testID }: WorldMapProps) {
-  return (
-    <View style={[styles.container, styles.mobileContainer]} data-testid={testID}>
-      <Text style={styles.mobileText}>
-        Interactive map available on web.{'\n'}
-        Tap countries from the list below.
-      </Text>
-    </View>
-  )
-})
+// Lazy per platform. On web this splits react-simple-maps + d3 into an async
+// chunk so they stay out of the entry bundle; native has no chunks (metro
+// inlines the import) but the same shape keeps one code path. Only the
+// current platform's factory is ever evaluated.
+const MapLazy =
+  Platform.OS === 'web'
+    ? React.lazy(() => import('./WorldMapWeb'))
+    : React.lazy(() => import('./WorldMapNative'))
 
 // ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
 
 function WorldMapInner(props: WorldMapProps) {
-  if (Platform.OS === 'web' && WebMapLazy) {
-    return (
-      <Suspense
-        fallback={
-          <View style={[styles.container, styles.mobileContainer]}>
-            <ActivityIndicator color={colors.accentTeal} size="large" />
-          </View>
-        }
-      >
-        <WebMapLazy {...props} />
-      </Suspense>
-    )
-  }
-  return <MobileMap {...props} />
+  return (
+    <Suspense
+      fallback={
+        <View style={[styles.container, styles.loadingContainer]}>
+          <ActivityIndicator color={colors.accentTeal} size="large" />
+        </View>
+      }
+    >
+      <MapLazy {...props} />
+    </Suspense>
+  )
 }
 
 const styles = StyleSheet.create({
@@ -76,16 +62,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.mapOcean,
   },
-  mobileContainer: {
+  loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  mobileText: {
-    fontFamily: fontFamily.body,
-    fontSize: fontSize.base,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 24,
   },
 })
 

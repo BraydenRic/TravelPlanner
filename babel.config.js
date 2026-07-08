@@ -46,6 +46,10 @@ module.exports = function (api) {
     env: {
       test: {
         plugins: [
+          // Jest runs CommonJS and can't execute native import() — the map
+          // implementations load via React.lazy(() => import(...)), so
+          // dynamic imports must be transpiled to require() in tests.
+          '@babel/plugin-transform-dynamic-import',
           [
             'module-resolver',
             {

@@ -4,6 +4,7 @@
 
 import { Stack, router } from 'expo-router'
 import { useEffect } from 'react'
+import { GestureRoot } from '@components/GestureRoot'
 import { useFonts } from 'expo-font'
 import {
   Inter_400Regular,
@@ -74,14 +75,18 @@ export default function RootLayout() {
   if (!fontsLoaded) return null
 
   return (
-    <ErrorBoundary>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: '#07080D' },
-          animation: 'fade',
-        }}
-      />
-    </ErrorBoundary>
+    // Root view for react-native-gesture-handler (passthrough on web) — the
+    // map's pinch/pan/tap gestures silently never activate without it.
+    <GestureRoot>
+      <ErrorBoundary>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: '#07080D' },
+            animation: 'fade',
+          }}
+        />
+      </ErrorBoundary>
+    </GestureRoot>
   )
 }

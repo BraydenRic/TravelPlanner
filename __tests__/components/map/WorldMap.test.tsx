@@ -14,6 +14,12 @@ jest.mock('react-simple-maps', () => ({
   Geographies: ({ children }: any) => children({ geographies: [] }),
   Geography: () => null,
 }))
+// Platform is native in the test env, so WorldMap lazily resolves
+// WorldMapNative — stub the GeoJSON loader so no real fetch is attempted.
+jest.mock('@components/map/worldMapShared', () => ({
+  ...jest.requireActual('@components/map/worldMapShared'),
+  loadWorldFeatures: jest.fn().mockResolvedValue([]),
+}))
 
 const baseProps = {
   visitedCountries: [],

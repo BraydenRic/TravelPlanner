@@ -1,4 +1,11 @@
 // @testing-library/react-native v12+ includes matchers automatically
+
+// Native gesture/animation libraries need their official jest mocks — the
+// real modules require native bindings that don't exist in the test env.
+// Used by WorldMapNative (pinch/pan/tap on the mobile map).
+require('react-native-gesture-handler/jestSetup')
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'))
+
 // Mock expo-constants so supabase.ts doesn't throw "Missing Supabase configuration" at module init
 jest.mock('expo-constants', () => ({
   default: {

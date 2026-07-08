@@ -42,7 +42,9 @@ const config: Config = {
     '/src/constants/', // Constants only
   ],
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|moti|@shopify/flash-list)',
+    // d3-geo + d3-array (and its dep internmap) ship ESM-only and are
+    // imported by the map components, so they must be transformed too
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|moti|@shopify/flash-list|d3-geo|d3-array|internmap)',
   ],
 }
 
