@@ -147,6 +147,41 @@ describe('WorldMapNative', () => {
     expect(onCountryPress).not.toHaveBeenCalled()
   })
 
+  it('renders both polygons when two features share an ISO code (Cyprus remap)', async () => {
+    // Natural Earth has Cyprus (CYP) and Northern Cyprus (CYN) as separate
+    // features that both resolve to 'CY' — paths must be keyed by ADM0_A3
+    // or React drops one of them with a duplicate-key warning.
+    const cyprus = squareCountry('CY', 0)
+    cyprus.properties = { ISO_A2: 'CY', ADM0_A3: 'CYP', NAME: 'Cyprus' }
+    const northernCyprus = squareCountry('CY', 20)
+    northernCyprus.properties = { ISO_A2: '-99', ADM0_A3: 'CYN', NAME: 'N. Cyprus' }
+    mockLoad.mockResolvedValue([
+      { code: 'CY', feature: cyprus },
+      { code: 'CY', feature: northernCyprus },
+    ])
+
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const { getByTestId, UNSAFE_getAllByType, rerender } = render(
+        <WorldMapNative {...baseProps} />,
+      )
+      await waitFor(() => expect(mockLoad).toHaveBeenCalled())
+      layoutMap(getByTestId)
+      await waitFor(() => expect(UNSAFE_getAllByType(Path)).toHaveLength(2))
+
+      // Re-render (fill change) — duplicate keys corrupt reconciliation here
+      rerender(<WorldMapNative {...baseProps} selectedCountry="CY" />)
+      expect(UNSAFE_getAllByType(Path)).toHaveLength(2)
+
+      const keyWarnings = errorSpy.mock.calls.filter((args) =>
+        String(args[0]).includes('same key'),
+      )
+      expect(keyWarnings).toHaveLength(0)
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
   it('shows an error state with a working retry', async () => {
     mockLoad.mockRejectedValueOnce(new Error('network down'))
     const { getByTestId, getByText, UNSAFE_getAllByType } = render(

@@ -403,7 +403,7 @@ export default function WorldMapNative({
                   </Defs>
                 )}
 
-                {countryPaths.map(({ code, d }) => {
+                {countryPaths.map(({ code, feature, d }) => {
                   let fill: string
                   if (groupColors) {
                     const memberColors = groupColors.get(code)
@@ -421,7 +421,10 @@ export default function WorldMapNative({
                   }
                   return (
                     <CountryPath
-                      key={code}
+                      // ADM0_A3, not the ISO code: the ISO-code remap makes
+                      // Cyprus + Northern Cyprus both 'CY', and a duplicate
+                      // key would drop one polygon from the map.
+                      key={feature.properties.ADM0_A3}
                       d={d}
                       fill={fill}
                       selected={selectedCountry === code}
