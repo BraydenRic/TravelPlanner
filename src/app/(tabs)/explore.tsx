@@ -2,7 +2,7 @@
  * Explore screen — Browse countries by continent, search, top rated.
  */
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { Image, Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View, Pressable } from 'react-native'
 import { FlashList } from '@shopify/flash-list'
 import * as Haptics from 'expo-haptics'
@@ -11,7 +11,7 @@ import { colors } from '@theme/colors'
 import { borderRadius, spacing } from '@theme/spacing'
 import { fontFamily, fontSize } from '@theme/typography'
 import { COUNTRIES, CONTINENTS } from '@constants/countries'
-import { SearchBar } from '@components/layout/SearchBar'
+import { SearchBar, type SearchBarHandle } from '@components/layout/SearchBar'
 import { CategoryBadge } from '@components/ui/CategoryBadge'
 import { usePlacesStore } from '@stores/placesStore'
 import type { PlaceCategory } from '@typedefs/database'
@@ -61,6 +61,10 @@ export default function ExploreScreen() {
     setSearchQuery(q)
   }, [])
 
+  const searchRef = useRef<SearchBarHandle>(null)
+  const [searchExpanded, setSearchExpanded] = useState(false)
+  const dismissSearch = useCallback(() => searchRef.current?.collapse(), [])
+
   const renderCountryItem = useCallback(
     ({ item: country }: { item: typeof COUNTRIES[number] }) => {
       const visitStatus = visitedMap.get(country.code)
@@ -99,10 +103,26 @@ export default function ExploreScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Tap-away backdrop — closes the search when tapping anywhere else.
+          The typed filter stays applied to the list after dismissal. */}
+      {searchExpanded && (
+        <Pressable
+          style={styles.searchBackdrop}
+          onPress={dismissSearch}
+          accessibilityLabel="Close search"
+        />
+      )}
+
+      {/* Header — the expanded bar (260pt) + title don't fit side by side on
+          a phone, so the search takes over the row while open */}
       <View style={styles.header}>
-        <Text style={styles.title}>Explore</Text>
-        <SearchBar onSearch={handleSearch} placeholder="Search countries..." />
+        {!searchExpanded && <Text style={styles.title}>Explore</Text>}
+        <SearchBar
+          ref={searchRef}
+          onSearch={handleSearch}
+          onExpandedChange={setSearchExpanded}
+          placeholder="Search countries..."
+        />
       </View>
 
       {/* Continent filter */}
@@ -161,6 +181,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xxl + spacing.md,
     paddingBottom: spacing.md,
     gap: spacing.md,
+    // Above the search backdrop so the open bar stays interactive
+    zIndex: 20,
+  },
+  searchBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 15,
   },
   title: {
     fontFamily: fontFamily.heading,
