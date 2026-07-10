@@ -117,10 +117,11 @@ export default function ExploreScreen() {
           a phone, so the search takes over the row while open */}
       <View style={styles.header}>
         {!searchExpanded && <Text style={styles.title}>Explore</Text>}
+        {/* No onCountrySelect here on purpose: explore shows matches by
+            live-filtering the country cards below, not an attached dropdown */}
         <SearchBar
           ref={searchRef}
           onSearch={handleSearch}
-          onCountrySelect={handleCountryPress}
           onExpandedChange={setSearchExpanded}
           placeholder="Search countries..."
         />
