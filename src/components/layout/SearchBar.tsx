@@ -251,12 +251,12 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
         </Pressable>
       </Animated.View>
 
-      {/* Results dropdown — web only (removed from mobile by user request),
-          and only when a selection handler is provided (e.g. map, not
-          explore). Plain views, not FlashList: it's at most 6 rows, and a
-          virtualized list can't measure itself reliably inside an
-          absolutely-positioned box with no fixed height. */}
-      {Platform.OS === 'web' && expanded && results.length > 0 && onCountrySelect && (
+      {/* Results dropdown — only when a selection handler is provided (the
+          map; explore live-filters its own list instead). Plain views, not
+          FlashList: it's at most 6 rows, and a virtualized list can't measure
+          itself reliably inside an absolutely-positioned box with no fixed
+          height. */}
+      {expanded && results.length > 0 && onCountrySelect && (
         <View style={styles.dropdown}>
           {results.map(renderResult)}
         </View>
