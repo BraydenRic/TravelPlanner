@@ -28,18 +28,67 @@ export { supabase }
 // ---------------------------------------------------------------------------
 // Mitigates AS-01 T-01-A (M-01-A): use OAuth (no password to steal/phish).
 // The redirect URI must be registered in Google Cloud Console and Supabase
-// Auth settings. Using a custom scheme (driftmark://) prevents open redirect.
+// Auth settings (Expo Go uses exp://, standalone builds use driftmark://).
 
-export async function signInWithGoogle(): Promise<void> {
-  const redirectTo = Platform.OS === 'web'
-    ? `${window.location.origin}/auth/callback`
-    : 'driftmark://auth/callback'
+/**
+ * Signs in with Google.
+ *
+ * Web: supabase-js redirects the whole page to Google and back to
+ * /auth/callback, so this resolves before auth completes — the callback
+ * route finishes the session.
+ *
+ * Native: supabase-js cannot redirect anything, so we open the provider URL
+ * in an in-app browser ourselves, then build the session from the tokens in
+ * the redirect it hands back. Resolves true once the session is live.
+ *
+ * @returns true if a session was established (native), or the page redirect
+ *   started (web); false if the user dismissed the browser sheet.
+ */
+export async function signInWithGoogle(): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
+    if (error) throw new AuthError('Google sign-in failed', error)
+    return true
+  }
 
-  const { error } = await supabase.auth.signInWithOAuth({
+  // Loaded lazily so the web bundle never pulls in the native auth-session
+  // machinery (and so jest only needs these mocks in native-path tests).
+  const [WebBrowser, { makeRedirectUri }, QueryParams] = await Promise.all([
+    import('expo-web-browser'),
+    import('expo-auth-session'),
+    import('expo-auth-session/build/QueryParams'),
+  ])
+
+  // In Expo Go this resolves to exp://<host>/--/auth/callback; in a
+  // standalone build it resolves to driftmark://auth/callback (app scheme).
+  const redirectTo = makeRedirectUri({ path: 'auth/callback' })
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo },
+    options: { redirectTo, skipBrowserRedirect: true },
   })
-  if (error) throw new AuthError('Google sign-in failed', error)
+  if (error || !data?.url) throw new AuthError('Google sign-in failed', error ?? undefined)
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
+  if (result.type !== 'success') return false // user closed the sheet — not an error
+
+  const { params, errorCode } = QueryParams.getQueryParams(result.url)
+  if (errorCode) throw new AuthError('Google sign-in failed', errorCode)
+
+  const { access_token: accessToken, refresh_token: refreshToken } = params
+  if (!accessToken || !refreshToken) {
+    throw new AuthError('Google sign-in failed', 'no tokens in redirect')
+  }
+
+  const { error: sessionError } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  })
+  if (sessionError) throw new AuthError('Google sign-in failed', sessionError)
+  return true
 }
 
 // ---------------------------------------------------------------------------

@@ -2,7 +2,8 @@
  * Login screen — full-bleed dark, animated globe, Google sign-in.
  */
 
-import React, { useCallback, useEffect } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'expo-router'
 import {
   Pressable,
   StyleSheet,
@@ -142,6 +143,11 @@ function GoogleLogo() {
 
 export default function LoginScreen() {
   const { addToast } = useUIStore()
+  const router = useRouter()
+  // Inline notice under the buttons — toasts have no host component yet, so
+  // feedback must render here or the user sees nothing happen.
+  const [notice, setNotice] = useState<{ text: string; isError: boolean } | null>(null)
+  const [signingIn, setSigningIn] = useState(false)
 
   const contentOpacity = useSharedValue(0)
   const contentY = useSharedValue(30)
@@ -162,13 +168,24 @@ export default function LoginScreen() {
 
   const handleGoogleSignIn = useCallback(() => {
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-    void signInWithGoogle().catch(() => {
-      addToast({ message: 'Sign-in failed. Please try again.', type: 'error' })
-    })
-  }, [addToast])
+    setNotice(null)
+    setSigningIn(true)
+    signInWithGoogle()
+      .then((signedIn) => {
+        // On web the page redirects away, so only native reaches this branch
+        // with a live session — route past the auth guard ourselves.
+        if (signedIn && Platform.OS !== 'web') router.replace('/(tabs)/map')
+      })
+      .catch(() => {
+        addToast({ message: 'Sign-in failed. Please try again.', type: 'error' })
+        setNotice({ text: 'Sign-in failed. Please try again.', isError: true })
+      })
+      .finally(() => setSigningIn(false))
+  }, [addToast, router])
 
   const handleGuestContinue = useCallback(() => {
     addToast({ message: 'Guest mode coming soon', type: 'info', duration: 3000 })
+    setNotice({ text: 'Guest mode is coming soon.', isError: false })
   }, [addToast])
 
   return (
@@ -193,12 +210,15 @@ export default function LoginScreen() {
         <View style={styles.actions}>
           <Pressable
             onPress={handleGoogleSignIn}
-            style={styles.googleButton}
+            disabled={signingIn}
+            style={[styles.googleButton, signingIn && styles.googleButtonBusy]}
             accessibilityRole="button"
             accessibilityLabel="Sign in with Google"
           >
             <GoogleLogo />
-            <Text style={styles.googleText}>Continue with Google</Text>
+            <Text style={styles.googleText}>
+              {signingIn ? 'Signing in…' : 'Continue with Google'}
+            </Text>
           </Pressable>
 
           <Pressable
@@ -208,6 +228,12 @@ export default function LoginScreen() {
           >
             <Text style={styles.guestText}>Continue as Guest</Text>
           </Pressable>
+
+          {notice && (
+            <Text style={[styles.notice, notice.isError && styles.noticeError]}>
+              {notice.text}
+            </Text>
+          )}
         </View>
       </Animated.View>
     </View>
@@ -288,5 +314,17 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textTertiary,
     textDecorationLine: 'underline',
+  },
+  googleButtonBusy: {
+    opacity: 0.6,
+  },
+  notice: {
+    fontFamily: fontFamily.body,
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  noticeError: {
+    color: colors.danger,
   },
 })

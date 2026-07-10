@@ -1,6 +1,6 @@
 /**
  * CountryDrillDown — Zoomed-in country view with city pins.
- * Spring zoom-in entrance, staggered city pins, glass back button.
+ * Spring rise-in entrance, staggered city pins, glass back button.
  */
 
 import React, { memo, useCallback, useEffect, useMemo } from 'react'
@@ -140,21 +140,24 @@ function CountryDrillDownInner({
 }: CountryDrillDownProps) {
   const country = useMemo(() => getCountryByCode(countryCode), [countryCode])
 
-  // Entrance animation
-  const entryScale = useSharedValue(0.3)
+  // Entrance animation — opacity + a small rise. Never scale this container:
+  // FlashList v2 measures its viewport from the DOM on web, and a mid-spring
+  // scale bakes those shrunken measurements into the list layout permanently.
+  // A translate moves the box without changing its measured size.
+  const entryY = useSharedValue(24)
   const entryOpacity = useSharedValue(0)
 
   useEffect(() => {
-    entryScale.value = withSpring(1, springs.gentle)
+    entryY.value = withSpring(0, springs.gentle)
     entryOpacity.value = withSpring(1, springs.standard)
     return () => {
-      entryScale.value = 0.3
+      entryY.value = 24
       entryOpacity.value = 0
     }
-  }, [entryScale, entryOpacity])
+  }, [entryY, entryOpacity])
 
   const containerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: entryScale.value }],
+    transform: [{ translateY: entryY.value }],
     opacity: entryOpacity.value,
   }))
 
