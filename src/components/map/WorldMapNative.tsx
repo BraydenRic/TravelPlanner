@@ -14,11 +14,15 @@
  *     [lon, lat] and matched with d3's spherical point-in-polygon
  *     (countryAtPoint). No per-path hit-testing needed, and accuracy is
  *     independent of zoom.
- *   - Pinch/pan run on the UI thread as a plain view transform while the
- *     gesture is live (60fps, no JS-thread involvement), then get committed
- *     into the SVG's own <G> transform when the fingers lift. At rest the
- *     map is therefore always vector-rendered — crisp at any zoom — instead
- *     of a scaled-up raster.
+ *   - The SVG surface renders the whole world exactly once. Pinch/pan live
+ *     entirely in shared values applied as a view transform on the UI
+ *     thread — releasing a gesture commits nothing and re-renders nothing,
+ *     so there is no frame in which the map can jump. (The previous design
+ *     folded each gesture into the SVG's own <G transform> on release for
+ *     vector crispness at rest, but the reset and the re-render travel on
+ *     different threads and no ordering of the two is glitch-free.) The
+ *     surface is rendered oversampled instead, so zooming magnifies a
+ *     supersampled raster rather than a 1:1 one.
  */
 
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react'
@@ -30,7 +34,7 @@ import {
   View,
   type LayoutChangeEvent,
 } from 'react-native'
-import Svg, { Defs, G, Path, Pattern, Rect, Text as SvgText } from 'react-native-svg'
+import Svg, { Defs, Path, Pattern, Rect, Text as SvgText } from 'react-native-svg'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   runOnJS,
@@ -63,29 +67,28 @@ const MAP_H = 600
 const MIN_ZOOM = 1
 const MAX_ZOOM = 8
 
+// The surface renders larger than its fitted on-screen size by this factor,
+// so the gesture zoom magnifies a supersampled raster (blur at MAX_ZOOM is
+// MAX_ZOOM/OVERSAMPLE ≈ 2.7× instead of 8×). Capped in points so the backing
+// texture stays under common GPU limits on dense screens (~1300pt × 3px/pt
+// ≈ 3.9k px, under the 4k ceiling of older devices).
+const OVERSAMPLE = 3
+const MAX_SURFACE_PT = 1300
+
 function clampNumber(v: number, lo: number, hi: number): number {
+  'worklet'
   return Math.min(hi, Math.max(lo, v))
 }
 
 /**
- * Clamp a live view-space translation so the map always covers the viewport
- * (no dragging the world off-screen). Derived from the commit math below:
- * the committed translation t1 = s·t0 + (1−s)·center + tv/m must stay within
- * [dim·(1 − s·z0), 0], where dim/center are the canvas extent along the axis.
+ * Clamp one axis of the map-surface offset so the map always covers the
+ * viewport (no dragging the world off-screen). When the map is smaller than
+ * the viewport on this axis (letterboxed at low zoom), center it instead.
  */
-function clampPanAxis(
-  tv: number,
-  s: number,
-  z0: number,
-  t0: number,
-  dim: number,
-  m: number,
-): number {
+function clampOffsetAxis(o: number, extent: number, viewDim: number): number {
   'worklet'
-  const center = dim / 2
-  const lo = m * (dim * (1 - s * z0) - s * t0 - (1 - s) * center)
-  const hi = m * (-s * t0 - (1 - s) * center)
-  return Math.min(hi, Math.max(lo, tv))
+  if (extent <= viewDim) return (viewDim - extent) / 2
+  return Math.min(0, Math.max(viewDim - extent, o))
 }
 
 // ---------------------------------------------------------------------------
@@ -96,10 +99,16 @@ const CountryPath = memo(function CountryPath({
   d,
   fill,
   selected,
+  strokeScale,
 }: {
   d: string
   fill: string
   selected: boolean
+  /** 1/settledZoom — keeps borders a constant on-screen thickness at the
+      resting zoom. (The SVG never re-renders during gestures, so this
+      replaces vectorEffect="non-scaling-stroke" from the commit-based
+      design; borders thicken slightly mid-pinch, then settle.) */
+  strokeScale: number
 }) {
   return (
     <Path
@@ -109,10 +118,7 @@ const CountryPath = memo(function CountryPath({
       // visible between adjacent highlighted countries (fills are capped
       // below full opacity for the same reason — see getCountryFill).
       stroke={selected ? colors.accentTeal : 'rgba(255,255,255,0.85)'}
-      strokeWidth={selected ? 1 : 0.8}
-      // Keeps borders a constant on-screen thickness at any committed zoom,
-      // mirroring the web map.
-      vectorEffect="non-scaling-stroke"
+      strokeWidth={(selected ? 1 : 0.8) * strokeScale}
     />
   )
 })
@@ -134,12 +140,11 @@ export default function WorldMapNative({
   const [loadError, setLoadError] = useState(false)
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [layout, setLayout] = useState({ w: 0, h: 0 })
-  // Committed map transform in SVG user units: translate(tx, ty) scale(zoom).
-  // Rendered statically into the <G>, so the resting map is pure vector.
-  // `gen` counts gesture commits: the canvas layer is keyed on it so each
-  // commit remounts the layer with the live transform already at identity —
-  // one atomic React transaction instead of a cross-thread reset race.
-  const [view, setView] = useState({ zoom: 1, tx: 0, ty: 0, gen: 0 })
+  // The map transform lives entirely in shared values (below), never in
+  // React state. `settledZoom` is the only zoom React sees — set after a
+  // pinch ends — and drives cosmetics only (border widths, label sizes),
+  // so updating it never moves anything on screen.
+  const [settledZoom, setSettledZoom] = useState(1)
   const viewInitialized = React.useRef(false)
 
   useEffect(() => {
@@ -170,164 +175,92 @@ export default function WorldMapNative({
       .filter((entry) => entry.d !== '')
   }, [countries, projection])
 
-  // viewBox letterboxing: the 800×600 canvas is scaled by m and centered in
-  // the layout (preserveAspectRatio "meet" behaviour), so view-space points
-  // convert to canvas units via (p − offset) / m.
+  // The 800×600 canvas fits the layout scaled by m ("meet" behaviour). The
+  // surface renders oversample× that size and the view transform scales it
+  // back down, so the screen mapping is: screen = o + zoom·m·canvas.
   const m = layout.w > 0 ? Math.min(layout.w / MAP_W, layout.h / MAP_H) : 0
-  const offsetX = (layout.w - MAP_W * m) / 2
-  const offsetY = (layout.h - MAP_H * m) / 2
+  const oversample = m > 0 ? Math.min(OVERSAMPLE, MAX_SURFACE_PT / (m * MAP_W)) : 1
+  const surfW = m * MAP_W * oversample
+  const surfH = m * MAP_H * oversample
 
-  // --- Live gesture state (UI thread) --------------------------------------
-  const scale = useSharedValue(1)
-  const tvx = useSharedValue(0)
-  const tvy = useSharedValue(0)
+  // --- Gesture state (UI thread only) ---------------------------------------
+  // zoomSV ∈ [MIN_ZOOM, MAX_ZOOM]; (oxSV, oySV) is the view-space position
+  // of the canvas origin: screen = o + zoom·m·canvas. Gestures mutate these
+  // directly — there is no live/committed split and no commit step.
+  const zoomSV = useSharedValue(1)
+  const oxSV = useSharedValue(0)
+  const oySV = useSharedValue(0)
   const panBaseX = useSharedValue(0)
   const panBaseY = useSharedValue(0)
-  const pinchBaseScale = useSharedValue(1)
+  const pinchBaseZoom = useSharedValue(1)
   const pinchBaseX = useSharedValue(0)
   const pinchBaseY = useSharedValue(0)
   const pinchFocalX = useSharedValue(0)
   const pinchFocalY = useSharedValue(0)
-  const panActive = useSharedValue(false)
-  const pinchActive = useSharedValue(false)
-
-  /**
-   * Fold the finished gesture's view transform into the committed SVG
-   * transform, then reset the live transform to identity. Composition:
-   * committed <G> maps canvas→canvas (zoom, t), the viewBox maps canvas→view
-   * (m, offset), and the live transform scales about the view center — so
-   * z1 = s·z0 and t1 = s·t0 + (1−s)·canvasCenter + tv/m.
-   * At rest the transforms are equivalent by construction.
-   *
-   * Atomicity: the live-transform reset and the re-render MUST paint on the
-   * same frame — resetting early flashes the old map un-transformed, and
-   * resetting late double-applies the gesture for a frame (both were
-   * observed on device; the two updates travel on different threads, so no
-   * ordering of separate updates is reliable). Instead each commit bumps
-   * `gen`, the canvas layer below is keyed on it, and the shared values are
-   * zeroed during render before the new layer mounts — the remounted layer
-   * is born with identity transform in the same React transaction that
-   * carries the new <G>.
-   */
-  const commitGesture = useCallback(
-    (s: number, vx: number, vy: number) => {
-      setView((prev) => {
-        const zoom = clampNumber(prev.zoom * s, MIN_ZOOM, MAX_ZOOM)
-        const sEff = zoom / prev.zoom
-        const tx = clampNumber(
-          sEff * prev.tx + (1 - sEff) * (MAP_W / 2) + vx / m,
-          MAP_W * (1 - zoom),
-          0,
-        )
-        const ty = clampNumber(
-          sEff * prev.ty + (1 - sEff) * (MAP_H / 2) + vy / m,
-          MAP_H * (1 - zoom),
-          0,
-        )
-        return { zoom, tx, ty, gen: prev.gen + 1 }
-      })
-    },
-    [m],
-  )
-
-  // Zero the live transform during render for a new commit generation, so
-  // the keyed canvas layer mounts with identity already applied.
-  const renderedGen = React.useRef(0)
-  if (renderedGen.current !== view.gen) {
-    renderedGen.current = view.gen
-    scale.value = 1
-    tvx.value = 0
-    tvy.value = 0
-  }
 
   const handleTap = useCallback(
     (x: number, y: number) => {
       if (!countries || m === 0) return
-      // View point → canvas units → geographic coordinates. Taps only land
-      // while the map is at rest, when the live transform is identity, so
-      // only the committed transform needs inverting.
-      const px = ((x - offsetX) / m - view.tx) / view.zoom
-      const py = ((y - offsetY) / m - view.ty) / view.zoom
+      // View point → canvas units → geographic coordinates. Shared values
+      // read synchronously from JS; taps only land while the map is at rest.
+      const px = (x - oxSV.value) / (zoomSV.value * m)
+      const py = (y - oySV.value) / (zoomSV.value * m)
       const lonLat = projection.invert?.([px, py])
       if (!lonLat) return
       const code = countryAtPoint(countries, lonLat)
       if (code) onCountryPress(code)
     },
-    [countries, m, offsetX, offsetY, view, projection, onCountryPress],
+    [countries, m, projection, onCountryPress, oxSV, oySV, zoomSV],
   )
 
-  // Gestures capture the committed view + layout by value, so they're
-  // rebuilt each render — GestureDetector diffs and updates in place.
-  const zoom0 = view.zoom
-  const tx0 = view.tx
-  const ty0 = view.ty
-  const viewCX = layout.w / 2
-  const viewCY = layout.h / 2
-
-  const finishGesture = useCallback(() => {
-    'worklet'
-    if (panActive.value || pinchActive.value) return
-    if (scale.value === 1 && tvx.value === 0 && tvy.value === 0) return
-    runOnJS(commitGesture)(scale.value, tvx.value, tvy.value)
-  }, [panActive, pinchActive, scale, tvx, tvy, commitGesture])
+  // Gestures capture layout scalars by value, so they're rebuilt each
+  // render — GestureDetector diffs and updates in place.
+  const viewW = layout.w
+  const viewH = layout.h
 
   const pan = Gesture.Pan()
     .averageTouches(true)
     .maxPointers(2)
     .onStart(() => {
-      panBaseX.value = tvx.value
-      panBaseY.value = tvy.value
-      panActive.value = true
+      panBaseX.value = oxSV.value
+      panBaseY.value = oySV.value
     })
     .onUpdate((e) => {
-      tvx.value = clampPanAxis(panBaseX.value + e.translationX, scale.value, zoom0, tx0, MAP_W, m)
-      tvy.value = clampPanAxis(panBaseY.value + e.translationY, scale.value, zoom0, ty0, MAP_H, m)
-    })
-    .onFinalize(() => {
-      panActive.value = false
-      finishGesture()
+      const z = zoomSV.value
+      oxSV.value = clampOffsetAxis(panBaseX.value + e.translationX, z * m * MAP_W, viewW)
+      oySV.value = clampOffsetAxis(panBaseY.value + e.translationY, z * m * MAP_H, viewH)
     })
 
   const pinch = Gesture.Pinch()
     .onStart((e) => {
-      pinchBaseScale.value = scale.value
-      pinchBaseX.value = tvx.value
-      pinchBaseY.value = tvy.value
+      pinchBaseZoom.value = zoomSV.value
+      pinchBaseX.value = oxSV.value
+      pinchBaseY.value = oySV.value
       pinchFocalX.value = e.focalX
       pinchFocalY.value = e.focalY
-      pinchActive.value = true
     })
     .onUpdate((e) => {
-      // Total zoom (committed × live) stays within [MIN_ZOOM, MAX_ZOOM].
-      const next = Math.min(
-        MAX_ZOOM / zoom0,
-        Math.max(MIN_ZOOM / zoom0, pinchBaseScale.value * e.scale),
+      const next = clampNumber(pinchBaseZoom.value * e.scale, MIN_ZOOM, MAX_ZOOM)
+      // Keep the pinch focal point stationary: the canvas point under the
+      // focal at gesture start must stay under it, so o' = f − k·(f − o0).
+      const k = next / pinchBaseZoom.value
+      zoomSV.value = next
+      oxSV.value = clampOffsetAxis(
+        pinchFocalX.value - k * (pinchFocalX.value - pinchBaseX.value),
+        next * m * MAP_W,
+        viewW,
       )
-      // Keep the pinch focal point stationary: scale about the focal point
-      // captured at gesture start, expressed relative to the view center
-      // (the transform origin).
-      const k = next / pinchBaseScale.value
-      scale.value = next
-      tvx.value = clampPanAxis(
-        pinchFocalX.value - viewCX - k * (pinchFocalX.value - viewCX - pinchBaseX.value),
-        next,
-        zoom0,
-        tx0,
-        MAP_W,
-        m,
-      )
-      tvy.value = clampPanAxis(
-        pinchFocalY.value - viewCY - k * (pinchFocalY.value - viewCY - pinchBaseY.value),
-        next,
-        zoom0,
-        ty0,
-        MAP_H,
-        m,
+      oySV.value = clampOffsetAxis(
+        pinchFocalY.value - k * (pinchFocalY.value - pinchBaseY.value),
+        next * m * MAP_H,
+        viewH,
       )
     })
     .onFinalize(() => {
-      pinchActive.value = false
-      finishGesture()
+      // The only JS-side consequence of any gesture: cosmetics (border
+      // widths, label sizes) re-render for the new zoom. Positionally a
+      // no-op, so a late-landing frame is invisible.
+      runOnJS(setSettledZoom)(zoomSV.value)
     })
 
   const tap = Gesture.Tap()
@@ -340,43 +273,55 @@ export default function WorldMapNative({
   // which cancels the tap — so marking countries never fights with panning.
   const composed = Gesture.Race(tap, Gesture.Simultaneous(pan, pinch))
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: tvx.value },
-      { translateY: tvy.value },
-      { scale: scale.value },
-    ],
-  }))
+  // RN transforms scale about the view center; convert the top-left-origin
+  // mapping (screen = o + k·surfacePoint) into center-origin terms:
+  // translate = o + (k − 1)·center.
+  const animatedStyle = useAnimatedStyle(() => {
+    const k = zoomSV.value / oversample
+    return {
+      transform: [
+        { translateX: oxSV.value + (k - 1) * (surfW / 2) },
+        { translateY: oySV.value + (k - 1) * (surfH / 2) },
+        { scale: k },
+      ],
+    }
+  })
 
-  const onLayout = useCallback((e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout
-    setLayout({ w: width, h: height })
-    // First layout: start "cover"-fitted. The 4:3 world canvas letterboxes
-    // badly on portrait phones (a short strip with ocean bands above and
-    // below), so begin zoomed just enough to fill the viewport, centered.
-    // The centered translate sits inside the pan clamps, users can still
-    // pinch out to the full-world view, and on 4:3 layouts (desktop, tests)
-    // the cover zoom is exactly 1 so nothing changes.
-    setView((prev) => {
-      if (viewInitialized.current || width <= 0 || height <= 0) return prev
-      viewInitialized.current = true
-      const fit = Math.min(width / MAP_W, height / MAP_H)
-      const coverZoom = clampNumber(
-        Math.max(width / MAP_W, height / MAP_H) / fit,
-        MIN_ZOOM,
-        MAX_ZOOM,
-      )
-      if (coverZoom <= 1) return prev
-      // Keep `gen` unchanged: the live transform is already at identity on
-      // first layout, so no keyed remount is needed for the initial fit.
-      return {
-        zoom: coverZoom,
-        tx: (MAP_W * (1 - coverZoom)) / 2,
-        ty: (MAP_H * (1 - coverZoom)) / 2,
-        gen: prev.gen,
+  const onLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const { width, height } = e.nativeEvent.layout
+      const fitM = Math.min(width / MAP_W, height / MAP_H)
+      if (!viewInitialized.current && width > 0 && height > 0) {
+        viewInitialized.current = true
+        // First layout: start "cover"-fitted. The 4:3 world canvas
+        // letterboxes badly on portrait phones (a short strip with ocean
+        // bands above and below), so begin zoomed just enough to fill the
+        // viewport, centered. Users can still pinch out to the full-world
+        // view, and on 4:3 layouts (desktop, tests) the cover zoom is
+        // exactly 1 so nothing changes.
+        const coverZoom = clampNumber(
+          Math.max(width / MAP_W, height / MAP_H) / fitM,
+          MIN_ZOOM,
+          MAX_ZOOM,
+        )
+        zoomSV.value = coverZoom
+        oxSV.value = (width - coverZoom * fitM * MAP_W) / 2
+        oySV.value = (height - coverZoom * fitM * MAP_H) / 2
+        setSettledZoom(coverZoom)
+      } else if (layout.w > 0 && (layout.w !== width || layout.h !== height)) {
+        // Re-layout (rotation, container resize): the offsets are in view
+        // units, so remap them to keep the same canvas point centered.
+        const mOld = Math.min(layout.w / MAP_W, layout.h / MAP_H)
+        const z = zoomSV.value
+        const cx = (layout.w / 2 - oxSV.value) / (z * mOld)
+        const cy = (layout.h / 2 - oySV.value) / (z * mOld)
+        oxSV.value = clampOffsetAxis(width / 2 - z * fitM * cx, z * fitM * MAP_W, width)
+        oySV.value = clampOffsetAxis(height / 2 - z * fitM * cy, z * fitM * MAP_H, height)
       }
-    })
-  }, [])
+      setLayout({ w: width, h: height })
+    },
+    [layout, zoomSV, oxSV, oySV],
+  )
 
   // --- Fills ----------------------------------------------------------------
   const isGroupMode = Array.isArray(groupMapData)
@@ -412,141 +357,129 @@ export default function WorldMapNative({
     <GestureDetector gesture={composed}>
       <View style={styles.container} onLayout={onLayout} testID={testID}>
         {layout.w > 0 && (
-          <Animated.View key={view.gen} style={[styles.canvas, animatedStyle]}>
-            {/* The SVG bleeds one full viewport past every edge so live
-                drags/pinches reveal real map instead of blank space (the
-                gesture moves this layer; only on release does the transform
-                commit and re-render). The viewBox spans the same bleed in
-                canvas units, so the view→canvas mapping — and therefore all
-                tap/clamp math — is unchanged: (p − offset) / m. */}
-            <Svg
-              width={layout.w * 3}
-              height={layout.h * 3}
-              viewBox={`${-(offsetX + layout.w) / m} ${-(offsetY + layout.h) / m} ${(layout.w * 3) / m} ${(layout.h * 3) / m}`}
-              style={{ position: 'absolute', left: -layout.w, top: -layout.h }}
-            >
-              <G transform={`translate(${view.tx}, ${view.ty}) scale(${view.zoom})`}>
-                {multiMemberEntries.length > 0 && (
-                  <Defs>
-                    {multiMemberEntries.map(([code, memberColors]) => {
-                      const feature = countryPaths.find((c) => c.code === code)?.feature
-                      const stripe = groupStripeWidth(feature)
-                      const width = stripe * memberColors.length
-                      return (
-                        <Pattern
-                          key={code}
-                          id={groupPatternId(code)}
-                          patternUnits="userSpaceOnUse"
-                          width={width}
-                          height={stripe}
-                          patternTransform="rotate(45)"
-                        >
-                          {memberColors.map((c, i) => (
-                            <Rect
-                              key={c}
-                              x={i * stripe}
-                              y={0}
-                              width={stripe}
-                              height={stripe}
-                              fill={c}
-                              opacity={0.8}
-                            />
-                          ))}
-                        </Pattern>
-                      )
-                    })}
-                  </Defs>
-                )}
+          <Animated.View style={[styles.surface, { width: surfW, height: surfH }, animatedStyle]}>
+            <Svg width={surfW} height={surfH} viewBox={`0 0 ${MAP_W} ${MAP_H}`}>
+              {multiMemberEntries.length > 0 && (
+                <Defs>
+                  {multiMemberEntries.map(([code, memberColors]) => {
+                    const feature = countryPaths.find((c) => c.code === code)?.feature
+                    const stripe = groupStripeWidth(feature)
+                    const width = stripe * memberColors.length
+                    return (
+                      <Pattern
+                        key={code}
+                        id={groupPatternId(code)}
+                        patternUnits="userSpaceOnUse"
+                        width={width}
+                        height={stripe}
+                        patternTransform="rotate(45)"
+                      >
+                        {memberColors.map((c, i) => (
+                          <Rect
+                            key={c}
+                            x={i * stripe}
+                            y={0}
+                            width={stripe}
+                            height={stripe}
+                            fill={c}
+                            opacity={0.8}
+                          />
+                        ))}
+                      </Pattern>
+                    )
+                  })}
+                </Defs>
+              )}
 
-                {countryPaths.map(({ code, feature, d }) => {
-                  let fill: string
-                  if (groupColors) {
-                    const memberColors = groupColors.get(code)
-                    if (!memberColors || memberColors.length === 0) {
-                      fill = colors.mapLand
-                    } else if (memberColors.length === 1) {
-                      // CC = ~80% alpha — keeps member colors just dim
-                      // enough that shared white borders stay visible
-                      fill = `${memberColors[0]}CC`
-                    } else {
-                      fill = `url(#${groupPatternId(code)})`
-                    }
+              {countryPaths.map(({ code, feature, d }) => {
+                let fill: string
+                if (groupColors) {
+                  const memberColors = groupColors.get(code)
+                  if (!memberColors || memberColors.length === 0) {
+                    fill = colors.mapLand
+                  } else if (memberColors.length === 1) {
+                    // CC = ~80% alpha — keeps member colors just dim
+                    // enough that shared white borders stay visible
+                    fill = `${memberColors[0]}CC`
                   } else {
-                    fill = getCountryFill(code, visitedCountries, activeCategory)
+                    fill = `url(#${groupPatternId(code)})`
                   }
-                  return (
-                    <CountryPath
-                      // ADM0_A3, not the ISO code: the ISO-code remap makes
-                      // Cyprus + Northern Cyprus both 'CY', and a duplicate
-                      // key would drop one polygon from the map.
-                      key={feature.properties.ADM0_A3}
-                      d={d}
-                      fill={fill}
-                      selected={selectedCountry === code}
-                    />
-                  )
-                })}
+                } else {
+                  fill = getCountryFill(code, visitedCountries, activeCategory)
+                }
+                return (
+                  <CountryPath
+                    // ADM0_A3, not the ISO code: the ISO-code remap makes
+                    // Cyprus + Northern Cyprus both 'CY', and a duplicate
+                    // key would drop one polygon from the map.
+                    key={feature.properties.ADM0_A3}
+                    d={d}
+                    fill={fill}
+                    selected={selectedCountry === code}
+                    strokeScale={1 / settledZoom}
+                  />
+                )
+              })}
 
-                {/* Labels render in a second pass so names paint on top of
-                    every fill. Sizing/skip logic is shared with web; the halo
-                    is a separate stroke-only text underneath because
-                    react-native-svg has no paintOrder. */}
-                {showAllLabels &&
-                  (() => {
-                    const labeledCodes = new Set<string>()
-                    return countryPaths.map(({ code, feature }) => {
-                      if (labeledCodes.has(code)) return null
+              {/* Labels render in a second pass so names paint on top of
+                  every fill. Sizing/skip logic is shared with web; the halo
+                  is a separate stroke-only text underneath because
+                  react-native-svg has no paintOrder. */}
+              {showAllLabels &&
+                (() => {
+                  const labeledCodes = new Set<string>()
+                  return countryPaths.map(({ code, feature }) => {
+                    if (labeledCodes.has(code)) return null
 
-                      const name = LABEL_NAME_OVERRIDES[code] ?? feature.properties.NAME
-                      if (!name) return null
+                    const name = LABEL_NAME_OVERRIDES[code] ?? feature.properties.NAME
+                    if (!name) return null
 
-                      const centroid = LABEL_CENTROID_OVERRIDES[code] ?? interiorCentroid(feature)
-                      if (!centroid || Number.isNaN(centroid[0])) return null
-                      const anchor = projection(centroid)
-                      if (!anchor) return null
+                    const centroid = LABEL_CENTROID_OVERRIDES[code] ?? interiorCentroid(feature)
+                    if (!centroid || Number.isNaN(centroid[0])) return null
+                    const anchor = projection(centroid)
+                    if (!anchor) return null
 
-                      const isMarked = groupColors
-                        ? (groupColors.get(code)?.length ?? 0) > 0
-                        : (visitedCountries.find((c) => c.country_code === code)
-                            ?.cities_visited ?? 0) > 0
+                    const isMarked = groupColors
+                      ? (groupColors.get(code)?.length ?? 0) > 0
+                      : (visitedCountries.find((c) => c.country_code === code)
+                          ?.cities_visited ?? 0) > 0
 
-                      const label = name.toUpperCase()
-                      const size = labelFontSize(feature, label, isMarked, view.zoom)
-                      if (size === null) return null
+                    const label = name.toUpperCase()
+                    const size = labelFontSize(feature, label, isMarked, settledZoom)
+                    if (size === null) return null
 
-                      labeledCodes.add(code)
+                    labeledCodes.add(code)
 
-                      const fillColor = isMarked
-                        ? 'rgba(255,255,255,0.95)'
-                        : 'rgba(255,255,255,0.45)'
-                      const haloWidth = Math.max(2, (isMarked ? 0.45 : 0.3) / view.zoom)
-                      const textProps = {
-                        x: anchor[0],
-                        y: anchor[1],
-                        fontSize: size,
-                        fontFamily: isMarked ? fontFamily.semibold : fontFamily.medium,
-                        letterSpacing: size * 0.08,
-                        textAnchor: 'middle' as const,
-                        alignmentBaseline: 'middle' as const,
-                      }
-                      return (
-                        <React.Fragment key={`label-${code}`}>
-                          <SvgText
-                            {...textProps}
-                            fill="none"
-                            stroke="rgba(7,8,13,0.55)"
-                            strokeWidth={haloWidth}
-                          >
-                            {label}
-                          </SvgText>
-                          <SvgText {...textProps} fill={fillColor}>
-                            {label}
-                          </SvgText>
-                        </React.Fragment>
-                      )
-                    })
-                  })()}
-              </G>
+                    const fillColor = isMarked
+                      ? 'rgba(255,255,255,0.95)'
+                      : 'rgba(255,255,255,0.45)'
+                    const haloWidth = Math.max(2, (isMarked ? 0.45 : 0.3) / settledZoom)
+                    const textProps = {
+                      x: anchor[0],
+                      y: anchor[1],
+                      fontSize: size,
+                      fontFamily: isMarked ? fontFamily.semibold : fontFamily.medium,
+                      letterSpacing: size * 0.08,
+                      textAnchor: 'middle' as const,
+                      alignmentBaseline: 'middle' as const,
+                    }
+                    return (
+                      <React.Fragment key={`label-${code}`}>
+                        <SvgText
+                          {...textProps}
+                          fill="none"
+                          stroke="rgba(7,8,13,0.55)"
+                          strokeWidth={haloWidth}
+                        >
+                          {label}
+                        </SvgText>
+                        <SvgText {...textProps} fill={fillColor}>
+                          {label}
+                        </SvgText>
+                      </React.Fragment>
+                    )
+                  })
+                })()}
             </Svg>
           </Animated.View>
         )}
@@ -559,13 +492,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.mapOcean,
-    // The live gesture transform scales the canvas past the container's
-    // bounds — clip it so the map never bleeds over surrounding UI (the
-    // group screen renders the map inside a card).
+    // The oversampled surface extends past the container's bounds — clip it
+    // so the map never bleeds over surrounding UI (the group screen renders
+    // the map inside a card).
     overflow: 'hidden',
   },
-  canvas: {
-    flex: 1,
+  surface: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
   },
   center: {
     alignItems: 'center',
