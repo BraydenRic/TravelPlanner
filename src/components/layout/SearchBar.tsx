@@ -3,7 +3,7 @@
  * Collapses to icon, expands with spring animation.
  */
 
-import React, { memo, useCallback, useRef, useState } from 'react'
+import React, { forwardRef, memo, useCallback, useImperativeHandle, useRef, useState } from 'react'
 import {
   Keyboard,
   Platform,
@@ -31,18 +31,27 @@ import type { CountryEntry } from '@constants/countries'
 interface SearchBarProps {
   onSearch: (query: string) => void
   onCountrySelect?: (code: string) => void
+  /** Fires when the bar expands/collapses — lets the host screen show a
+      tap-away backdrop (touches outside this small overlay can't be caught
+      from inside it, so dismissal has to live at screen level). */
+  onExpandedChange?: (expanded: boolean) => void
   placeholder?: string
   style?: object
+}
+
+export interface SearchBarHandle {
+  collapse: () => void
 }
 
 const EXPANDED_WIDTH = 260
 const COLLAPSED_WIDTH = 44
 
-function SearchBarInner({
+const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function SearchBarInner({
   onSearch,
   onCountrySelect,
+  onExpandedChange,
   placeholder = 'Search countries...',
-}: SearchBarProps) {
+}: SearchBarProps, ref) {
   const [expanded, setExpanded] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<CountryEntry[]>([])
@@ -52,19 +61,23 @@ function SearchBarInner({
   const expand = useCallback(() => {
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     setExpanded(true)
+    onExpandedChange?.(true)
     widthAnim.value = withSpring(EXPANDED_WIDTH, springs.standard)
     setTimeout(() => inputRef.current?.focus(), 150)
-  }, [widthAnim])
+  }, [widthAnim, onExpandedChange])
 
   const collapse = useCallback(() => {
     Keyboard.dismiss()
+    onExpandedChange?.(false)
     widthAnim.value = withSpring(COLLAPSED_WIDTH, springs.standard)
     setTimeout(() => {
       setExpanded(false)
       setQuery('')
       setResults([])
     }, 200)
-  }, [widthAnim])
+  }, [widthAnim, onExpandedChange])
+
+  useImperativeHandle(ref, () => ({ collapse }), [collapse])
 
   const handleTextChange = useCallback(
     (text: string) => {
@@ -186,7 +199,7 @@ function SearchBarInner({
       )}
     </View>
   )
-}
+})
 
 const styles = StyleSheet.create({
   wrapper: {

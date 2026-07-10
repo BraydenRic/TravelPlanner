@@ -4,7 +4,7 @@
  * Core flow: tap country → drill-down → tap city → rating form.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
@@ -17,7 +17,7 @@ import { fontFamily, fontSize } from '@theme/typography'
 import { WorldMap } from '@components/map/WorldMap'
 import { CountryDrillDown } from '@components/map/CountryDrillDown'
 import { CategoryTabs } from '@components/layout/CategoryTabs'
-import { SearchBar } from '@components/layout/SearchBar'
+import { SearchBar, type SearchBarHandle } from '@components/layout/SearchBar'
 import { RatingForm } from '@components/ratings/RatingForm'
 import { useMap } from '@hooks/useMap'
 import { getCitiesByCountry, createPlace, updatePlace, deletePlace, getPlaceByCountryAndCity, getPlaces } from '@services/places'
@@ -140,6 +140,10 @@ export default function MapScreen() {
   }, [activeDrillDownCity, activeDrillDownCountry, activeCategory, places])
 
   const handleSearch = useCallback((_query: string) => {}, [])
+
+  const searchRef = useRef<SearchBarHandle>(null)
+  const [searchExpanded, setSearchExpanded] = useState(false)
+  const dismissSearch = useCallback(() => searchRef.current?.collapse(), [])
 
   // On wide screens the floating tab-bar pill is narrow and centered, so the
   // corner chips can hug the bottom. On phones the pill spans nearly the full
@@ -291,6 +295,16 @@ export default function MapScreen() {
 
       {/* Floating overlays */}
 
+      {/* Tap-away backdrop — sits above the map and the other overlays but
+          below the search bar, so any tap outside the open search closes it */}
+      {!activeDrillDownCountry && searchExpanded && (
+        <Pressable
+          style={styles.searchBackdrop}
+          onPress={dismissSearch}
+          accessibilityLabel="Close search"
+        />
+      )}
+
       {/* Category tabs — top center */}
       {!activeDrillDownCountry && (
         <View style={styles.topCenter} pointerEvents="box-none">
@@ -304,7 +318,12 @@ export default function MapScreen() {
       {/* Search icon — top right */}
       {!activeDrillDownCountry && (
         <View style={styles.topRight} pointerEvents="box-none">
-          <SearchBar onSearch={handleSearch} onCountrySelect={handleCountryPress} />
+          <SearchBar
+            ref={searchRef}
+            onSearch={handleSearch}
+            onCountrySelect={handleCountryPress}
+            onExpandedChange={setSearchExpanded}
+          />
         </View>
       )}
 
@@ -377,7 +396,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.xxl + spacing.md,
     right: spacing.md,
-    zIndex: 10,
+    // Above the search backdrop so the open bar stays interactive
+    zIndex: 20,
+  },
+  searchBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    // Above the other overlays (10): tapping tabs/chips while the search is
+    // open dismisses it instead of activating them
+    zIndex: 15,
   },
   bottomLeft: {
     position: 'absolute',

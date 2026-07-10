@@ -137,6 +137,7 @@ export default function WorldMapNative({
   // Committed map transform in SVG user units: translate(tx, ty) scale(zoom).
   // Rendered statically into the <G>, so the resting map is pure vector.
   const [view, setView] = useState({ zoom: 1, tx: 0, ty: 0 })
+  const viewInitialized = React.useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -332,6 +333,28 @@ export default function WorldMapNative({
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout
     setLayout({ w: width, h: height })
+    // First layout: start "cover"-fitted. The 4:3 world canvas letterboxes
+    // badly on portrait phones (a short strip with ocean bands above and
+    // below), so begin zoomed just enough to fill the viewport, centered.
+    // The centered translate sits inside the pan clamps, users can still
+    // pinch out to the full-world view, and on 4:3 layouts (desktop, tests)
+    // the cover zoom is exactly 1 so nothing changes.
+    setView((prev) => {
+      if (viewInitialized.current || width <= 0 || height <= 0) return prev
+      viewInitialized.current = true
+      const fit = Math.min(width / MAP_W, height / MAP_H)
+      const coverZoom = clampNumber(
+        Math.max(width / MAP_W, height / MAP_H) / fit,
+        MIN_ZOOM,
+        MAX_ZOOM,
+      )
+      if (coverZoom <= 1) return prev
+      return {
+        zoom: coverZoom,
+        tx: (MAP_W * (1 - coverZoom)) / 2,
+        ty: (MAP_H * (1 - coverZoom)) / 2,
+      }
+    })
   }, [])
 
   // --- Fills ----------------------------------------------------------------
