@@ -18,7 +18,7 @@ import { createMockPhoto } from '@/../__tests__/factories'
 // Additional mocks (on top of jest.setup global mocks)
 // ---------------------------------------------------------------------------
 
-jest.mock('expo-file-system', () => ({
+jest.mock('expo-file-system/legacy', () => ({
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 500 * 1024 }), // 500 KB — under limit
   readAsStringAsync: jest.fn().mockResolvedValue(
     // Base64 for JPEG magic bytes: FF D8 FF + 9 padding zeros

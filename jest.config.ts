@@ -4,10 +4,6 @@ const config: Config = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
-    // RN 0.76 + jest-expo compatibility: jest-expo's setup.js reads .default from NativeModules
-    // but RN 0.76's jest mock is plain CJS (no .default). Shim adds .default before setup runs.
-    '^react-native/Libraries/BatchedBridge/NativeModules$':
-      '<rootDir>/__mocks__/NativeModulesCompat.js',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@components/(.*)$': '<rootDir>/src/components/$1',
     '^@services/(.*)$': '<rootDir>/src/services/$1',

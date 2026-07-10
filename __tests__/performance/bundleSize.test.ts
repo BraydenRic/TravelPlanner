@@ -53,14 +53,15 @@ describe('Bundle size', () => {
     }
 
     // Hard limit — this test MUST fail if the budget is exceeded.
-    // Measured 2026-07: entry is ~528 KB gz after splitting the map libs
-    // (82 KB) and Sentry (325 KB) into async chunks; the remainder is the
-    // framework floor (react-native-web, reanimated, expo-router, supabase)
-    // plus all route screens, which metro bundles into the entry until
-    // expo-router async routes are production-ready. Budget = measured + a
-    // little headroom; ratchet DOWN as more moves into async chunks, and
-    // never raise it without a deliberate decision.
-    expect(entryBytes).toBeLessThan(550 * 1024)
+    // Measured 2026-07 on SDK 54: entry is ~586 KB gz (was ~528 KB on SDK 53;
+    // the +58 KB is React 19 + react-native-web 0.21 + expo-router 6 +
+    // Reanimated 4/worklets — verified no app code regressed: map libs, Sentry,
+    // and gesture-handler are still async/off-web). The remainder is the
+    // framework floor plus all route screens, which metro bundles into the
+    // entry until expo-router async routes are production-ready. Budget =
+    // measured + a little headroom; ratchet DOWN as more moves into async
+    // chunks, and never raise it without a deliberate decision.
+    expect(entryBytes).toBeLessThan(615 * 1024)
   })
 
   it('dist/ contains at least one JS file when built', () => {

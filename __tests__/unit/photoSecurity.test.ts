@@ -25,7 +25,7 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals'
 // Use inline jest.fn() so factories don't reference uninitialized variables.
 // (Babel hoists jest.mock() above const declarations, so variable references
 // would be undefined when the factory is first called during module loading.)
-jest.mock('expo-file-system', () => ({
+jest.mock('expo-file-system/legacy', () => ({
   getInfoAsync: jest.fn(),
   readAsStringAsync: jest.fn(),
   EncodingType: { Base64: 'base64' },
@@ -36,7 +36,7 @@ jest.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg' },
 }))
 
-import * as _FileSystem from 'expo-file-system'
+import * as _FileSystem from 'expo-file-system/legacy'
 import * as _ImageManipulator from 'expo-image-manipulator'
 import {
   PhotoSecurityError,

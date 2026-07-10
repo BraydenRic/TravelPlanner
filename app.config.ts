@@ -60,6 +60,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       color: '#00F5D4',
     }],
     'expo-font',
+    'expo-web-browser',
   ],
   experiments: {
     typedRoutes: true,

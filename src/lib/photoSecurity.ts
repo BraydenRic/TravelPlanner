@@ -15,7 +15,10 @@
  */
 
 import * as ImageManipulator from 'expo-image-manipulator'
-import * as FileSystem from 'expo-file-system'
+// SDK 54 made the new FileSystem API the default; this module still uses the
+// callback-style API (getInfoAsync/readAsStringAsync), which now lives under
+// /legacy. Migrate to the new API before SDK 55 removes the legacy entry.
+import * as FileSystem from 'expo-file-system/legacy'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -67,7 +70,7 @@ export class PhotoSecurityError extends Error {
  * Mitigates AS-03 T-03-A: prevents MIME type spoofing by inspecting file content.
  */
 export async function validateImageMagicBytes(uri: string): Promise<string> {
-  const fileInfo = await FileSystem.getInfoAsync(uri, { size: true })
+  const fileInfo = await FileSystem.getInfoAsync(uri)
   if (!fileInfo.exists) {
     throw new PhotoSecurityError('File does not exist')
   }
@@ -109,7 +112,7 @@ export async function validateImageMagicBytes(uri: string): Promise<string> {
  * storage quota or causing OOM conditions during processing.
  */
 export async function validateFileSize(uri: string): Promise<void> {
-  const fileInfo = await FileSystem.getInfoAsync(uri, { size: true })
+  const fileInfo = await FileSystem.getInfoAsync(uri)
   if (!fileInfo.exists) {
     throw new PhotoSecurityError('File does not exist')
   }
@@ -165,7 +168,7 @@ export async function compressForUpload(uri: string): Promise<string> {
     format: ImageManipulator.SaveFormat.JPEG,
   })
 
-  const info = await FileSystem.getInfoAsync(result.uri, { size: true })
+  const info = await FileSystem.getInfoAsync(result.uri)
   if ('size' in info && info.size > MAX_UPLOAD_SIZE_BYTES) {
     quality = 0.7
     result = await ImageManipulator.manipulateAsync(uri, [], {

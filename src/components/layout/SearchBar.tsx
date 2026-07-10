@@ -179,7 +179,6 @@ function SearchBarInner({
           <FlashList
             data={results}
             renderItem={renderResult}
-            estimatedItemSize={44}
             keyExtractor={(item) => item.code}
             scrollEnabled={false}
           />

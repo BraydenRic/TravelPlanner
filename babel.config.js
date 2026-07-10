@@ -25,7 +25,8 @@ module.exports = function (api) {
         extensions: ['.ts', '.tsx', '.js', '.jsx'],
       },
     ],
-    'react-native-reanimated/plugin',
+    // Reanimated 4's worklets plugin is added automatically by
+    // babel-preset-expo (SDK 50+), so no manual plugin entry is needed.
   ];
 
   // Strip console.* calls in production builds (Security: M-08-D, M-14-C)

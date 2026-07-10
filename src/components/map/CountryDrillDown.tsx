@@ -207,7 +207,6 @@ function CountryDrillDownInner({
         <FlashList
           data={cities}
           renderItem={renderCity}
-          estimatedItemSize={56}
           keyExtractor={(item) => item.city.id}
           showsVerticalScrollIndicator={false}
         />
