@@ -9,20 +9,20 @@
  * Spring presets for different interaction types.
  * Tuned for a premium, fluid feel on the dark travel UI.
  *
- * Damping is chosen relative to stiffness for a damping ratio around 0.9
- * (settles with one tiny overshoot). Reanimated 4 plays the spring physics
- * out in full, so anything much below that reads as rubbery — only `bouncy`
- * stays deliberately underdamped (~0.6) for celebratory moments.
+ * The three UI presets are critically damped AND overshoot-clamped: they
+ * ease out with spring pacing but never travel past the target, so panels,
+ * the search bar, and entrances land dead — no bounce-back. Only `bouncy`
+ * (achievement/badge pops) is allowed to oscillate.
  */
 export const springs = {
   /** General UI transitions (modals, panels) */
-  standard: { damping: 22, stiffness: 150 },
+  standard: { damping: 25, stiffness: 150, overshootClamping: true },
 
   /** Quick feedback (taps, toggles) */
-  snappy: { damping: 30, stiffness: 250 },
+  snappy: { damping: 32, stiffness: 250, overshootClamping: true },
 
   /** Slower, more organic transitions (map camera, page entrances) */
-  gentle: { damping: 16, stiffness: 80 },
+  gentle: { damping: 18, stiffness: 80, overshootClamping: true },
 
   /** Playful bouncy (achievement unlock, badge pop) */
   bouncy: { damping: 13, stiffness: 120 },
