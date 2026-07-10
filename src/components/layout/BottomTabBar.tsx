@@ -206,7 +206,8 @@ const styles = StyleSheet.create({
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.md,
+    // spacing.md here pushes the 4-tab pill past 400pt — wider than a phone.
+    paddingHorizontal: spacing.sm,
   },
   tabContent: {
     alignItems: 'center',

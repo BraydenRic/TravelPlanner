@@ -5,7 +5,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import { useUIStore } from '@stores/uiStore'
 import { usePlacesStore } from '@stores/placesStore'
@@ -139,6 +140,15 @@ export default function MapScreen() {
   }, [activeDrillDownCity, activeDrillDownCountry, activeCategory, places])
 
   const handleSearch = useCallback((_query: string) => {}, [])
+
+  // On wide screens the floating tab-bar pill is narrow and centered, so the
+  // corner chips can hug the bottom. On phones the pill spans nearly the full
+  // width at that height, so the chips move above it (pill offset + pill
+  // height + breathing room), clearing the home indicator via insets.
+  const { width: windowWidth } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
+  const chipBottom =
+    windowWidth < 768 ? Math.max(12, insets.bottom + 4) + 84 : spacing.md
 
   const handleRatingSubmit = useCallback(
     async (ratings: Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>>, review: string) => {
@@ -300,7 +310,7 @@ export default function MapScreen() {
 
       {/* Stats chip — bottom left */}
       {!activeDrillDownCountry && (
-        <View style={styles.bottomLeft} pointerEvents="box-none">
+        <View style={[styles.bottomLeft, { bottom: chipBottom }]} pointerEvents="box-none">
           <View style={styles.statChip}>
             <Text style={styles.statText}>{statLabel}</Text>
           </View>
@@ -310,7 +320,7 @@ export default function MapScreen() {
       {/* Labels toggle — bottom right. Same glass style as the stat chip so
           they read as a matched pair of map controls. */}
       {!activeDrillDownCountry && (
-        <View style={styles.bottomRight} pointerEvents="box-none">
+        <View style={[styles.bottomRight, { bottom: chipBottom }]} pointerEvents="box-none">
           <Pressable
             onPress={() => {
               if (Platform.OS !== 'web') void Haptics.selectionAsync()

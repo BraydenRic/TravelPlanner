@@ -205,7 +205,10 @@ const styles = StyleSheet.create({
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
       } as Record<string, string>,
-      default: {},
+      // Native has no backdrop blur, so the glass alpha reads as plain
+      // transparency and whatever the expanded bar overlaps (the category
+      // tabs) shows through the input. Use the solid card color instead.
+      default: { backgroundColor: colors.bgL1 },
     }),
   },
   iconButton: {

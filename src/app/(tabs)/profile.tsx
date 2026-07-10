@@ -411,15 +411,18 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: -0.2,
   },
-  // Continent rings
+  // Continent rings — 3 per row so the fixed-size rings never squish on a
+  // phone (6 × 72pt can't fit one row on a ~390pt screen).
   continentRings: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
+    rowGap: spacing.md,
   },
   continentRingItem: {
     alignItems: 'center',
     gap: 6,
-    flex: 1,
+    width: '31%',
   },
   continentRingLabel: {
     fontFamily: fontFamily.medium,
@@ -427,10 +430,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
-  // Achievements
+  // Achievements — space-between keeps each row balanced edge-to-edge
+  // (12 badges divide evenly into rows of 3 on phones and 4 on wide screens).
   badgeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
+    justifyContent: 'space-between',
+    rowGap: spacing.lg,
   },
 })
