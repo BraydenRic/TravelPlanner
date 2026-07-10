@@ -21,7 +21,7 @@
  *     of a scaled-up raster.
  */
 
-import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -136,7 +136,10 @@ export default function WorldMapNative({
   const [layout, setLayout] = useState({ w: 0, h: 0 })
   // Committed map transform in SVG user units: translate(tx, ty) scale(zoom).
   // Rendered statically into the <G>, so the resting map is pure vector.
-  const [view, setView] = useState({ zoom: 1, tx: 0, ty: 0 })
+  // `gen` counts gesture commits: the canvas layer is keyed on it so each
+  // commit remounts the layer with the live transform already at identity —
+  // one atomic React transaction instead of a cross-thread reset race.
+  const [view, setView] = useState({ zoom: 1, tx: 0, ty: 0, gen: 0 })
   const viewInitialized = React.useRef(false)
 
   useEffect(() => {
@@ -194,15 +197,20 @@ export default function WorldMapNative({
    * committed <G> maps canvas→canvas (zoom, t), the viewBox maps canvas→view
    * (m, offset), and the live transform scales about the view center — so
    * z1 = s·z0 and t1 = s·t0 + (1−s)·canvasCenter + tv/m.
-   * At rest the transforms are equivalent by construction. The live-transform
-   * reset is deferred to the layout effect below: resetting here would reach
-   * the UI thread before React commits the re-rendered SVG, flashing a frame
-   * of the old map at identity (a visible jump on every release).
+   * At rest the transforms are equivalent by construction.
+   *
+   * Atomicity: the live-transform reset and the re-render MUST paint on the
+   * same frame — resetting early flashes the old map un-transformed, and
+   * resetting late double-applies the gesture for a frame (both were
+   * observed on device; the two updates travel on different threads, so no
+   * ordering of separate updates is reliable). Instead each commit bumps
+   * `gen`, the canvas layer below is keyed on it, and the shared values are
+   * zeroed during render before the new layer mounts — the remounted layer
+   * is born with identity transform in the same React transaction that
+   * carries the new <G>.
    */
-  const liveResetPending = React.useRef(false)
   const commitGesture = useCallback(
     (s: number, vx: number, vy: number) => {
-      liveResetPending.current = true
       setView((prev) => {
         const zoom = clampNumber(prev.zoom * s, MIN_ZOOM, MAX_ZOOM)
         const sEff = zoom / prev.zoom
@@ -216,21 +224,21 @@ export default function WorldMapNative({
           MAP_H * (1 - zoom),
           0,
         )
-        return { zoom, tx, ty }
+        return { zoom, tx, ty, gen: prev.gen + 1 }
       })
     },
     [m],
   )
 
-  // Runs after React commits the SVG carrying the newly baked-in transform,
-  // so the identity reset and the re-render paint together.
-  useLayoutEffect(() => {
-    if (!liveResetPending.current) return
-    liveResetPending.current = false
+  // Zero the live transform during render for a new commit generation, so
+  // the keyed canvas layer mounts with identity already applied.
+  const renderedGen = React.useRef(0)
+  if (renderedGen.current !== view.gen) {
+    renderedGen.current = view.gen
     scale.value = 1
     tvx.value = 0
     tvy.value = 0
-  }, [view, scale, tvx, tvy])
+  }
 
   const handleTap = useCallback(
     (x: number, y: number) => {
@@ -359,10 +367,13 @@ export default function WorldMapNative({
         MAX_ZOOM,
       )
       if (coverZoom <= 1) return prev
+      // Keep `gen` unchanged: the live transform is already at identity on
+      // first layout, so no keyed remount is needed for the initial fit.
       return {
         zoom: coverZoom,
         tx: (MAP_W * (1 - coverZoom)) / 2,
         ty: (MAP_H * (1 - coverZoom)) / 2,
+        gen: prev.gen,
       }
     })
   }, [])
@@ -401,7 +412,7 @@ export default function WorldMapNative({
     <GestureDetector gesture={composed}>
       <View style={styles.container} onLayout={onLayout} testID={testID}>
         {layout.w > 0 && (
-          <Animated.View style={[styles.canvas, animatedStyle]}>
+          <Animated.View key={view.gen} style={[styles.canvas, animatedStyle]}>
             {/* The SVG bleeds one full viewport past every edge so live
                 drags/pinches reveal real map instead of blank space (the
                 gesture moves this layer; only on release does the transform
