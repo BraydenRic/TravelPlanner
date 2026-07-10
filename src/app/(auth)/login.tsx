@@ -183,11 +183,6 @@ export default function LoginScreen() {
       .finally(() => setSigningIn(false))
   }, [addToast, router])
 
-  const handleGuestContinue = useCallback(() => {
-    addToast({ message: 'Guest mode coming soon', type: 'info', duration: 3000 })
-    setNotice({ text: 'Guest mode is coming soon.', isError: false })
-  }, [addToast])
-
   return (
     <View style={styles.container}>
       {/* Starfield background */}
@@ -219,14 +214,6 @@ export default function LoginScreen() {
             <Text style={styles.googleText}>
               {signingIn ? 'Signing in…' : 'Continue with Google'}
             </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={handleGuestContinue}
-            style={styles.guestLink}
-            accessibilityRole="button"
-          >
-            <Text style={styles.guestText}>Continue as Guest</Text>
           </Pressable>
 
           {notice && (
@@ -302,18 +289,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.textPrimary,
     letterSpacing: 0.2,
-  },
-  guestLink: {
-    padding: spacing.sm,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  guestText: {
-    fontFamily: fontFamily.body,
-    fontSize: fontSize.sm,
-    color: colors.textTertiary,
-    textDecorationLine: 'underline',
   },
   googleButtonBusy: {
     opacity: 0.6,
