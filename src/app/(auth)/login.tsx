@@ -22,7 +22,7 @@ import Animated, {
 import Svg, { Circle, Path, Line } from 'react-native-svg'
 import * as Haptics from 'expo-haptics'
 import { Platform } from 'react-native'
-import { signInWithGoogle } from '@lib/auth'
+import { preloadNativeAuth, signInWithGoogle } from '@lib/auth'
 import { useUIStore } from '@stores/uiStore'
 import { colors } from '@theme/colors'
 import { borderRadius, spacing } from '@theme/spacing'
@@ -151,6 +151,12 @@ export default function LoginScreen() {
 
   const contentOpacity = useSharedValue(0)
   const contentY = useSharedValue(30)
+
+  // Warm the native OAuth modules while the user is still looking at the
+  // screen, so the browser sheet opens immediately on tap.
+  useEffect(() => {
+    preloadNativeAuth()
+  }, [])
 
   useEffect(() => {
     contentOpacity.value = withDelay(300, withSpring(1, springs.standard))

@@ -30,6 +30,39 @@ export { supabase }
 // The redirect URI must be registered in Google Cloud Console and Supabase
 // Auth settings (Expo Go uses exp://, standalone builds use driftmark://).
 
+// The native OAuth flow needs expo-web-browser + expo-auth-session. They're
+// loaded via import() so the web bundle never includes them — but resolved
+// once and cached here so the browser sheet opens instantly on tap instead
+// of waiting on Metro/chunk fetch at the worst possible moment.
+type NativeAuthModules = [
+  typeof import('expo-web-browser'),
+  typeof import('expo-auth-session'),
+  typeof import('expo-auth-session/build/QueryParams'),
+]
+let nativeAuthModules: Promise<NativeAuthModules> | null = null
+
+function loadNativeAuthModules(): Promise<NativeAuthModules> {
+  nativeAuthModules ??= Promise.all([
+    import('expo-web-browser'),
+    import('expo-auth-session'),
+    import('expo-auth-session/build/QueryParams'),
+  ]).catch((err: unknown) => {
+    nativeAuthModules = null // allow retry after a transient dev-server hiccup
+    throw err
+  })
+  return nativeAuthModules
+}
+
+/**
+ * Warms up the native sign-in path (module load) so the first tap on the
+ * sign-in button doesn't stall. Call from the login screen on mount; no-op
+ * on web, and errors are deferred to the actual sign-in attempt.
+ */
+export function preloadNativeAuth(): void {
+  if (Platform.OS === 'web') return
+  void loadNativeAuthModules().catch(() => {})
+}
+
 /**
  * Signs in with Google.
  *
@@ -54,13 +87,7 @@ export async function signInWithGoogle(): Promise<boolean> {
     return true
   }
 
-  // Loaded lazily so the web bundle never pulls in the native auth-session
-  // machinery (and so jest only needs these mocks in native-path tests).
-  const [WebBrowser, { makeRedirectUri }, QueryParams] = await Promise.all([
-    import('expo-web-browser'),
-    import('expo-auth-session'),
-    import('expo-auth-session/build/QueryParams'),
-  ])
+  const [WebBrowser, { makeRedirectUri }, QueryParams] = await loadNativeAuthModules()
 
   // In Expo Go this resolves to exp://<host>/--/auth/callback; in a
   // standalone build it resolves to driftmark://auth/callback (app scheme).
