@@ -20,7 +20,6 @@ import Animated, {
 } from 'react-native-reanimated'
 import Svg, { Path, Circle } from 'react-native-svg'
 import * as Haptics from 'expo-haptics'
-import { FlashList } from '@shopify/flash-list'
 import { colors } from '@theme/colors'
 import { borderRadius, borderWidth, spacing } from '@theme/spacing'
 import { fontFamily, fontSize } from '@theme/typography'
@@ -69,11 +68,13 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
   const collapse = useCallback(() => {
     Keyboard.dismiss()
     onExpandedChange?.(false)
+    // Results vanish immediately — they should never outlive a dismissal.
+    // Only the bar itself gets the 200ms shrink animation.
+    setResults([])
     widthAnim.value = withSpring(COLLAPSED_WIDTH, springs.standard)
     setTimeout(() => {
       setExpanded(false)
       setQuery('')
-      setResults([])
     }, 200)
   }, [widthAnim, onExpandedChange])
 
@@ -101,11 +102,12 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
   }))
 
   const renderResult = useCallback(
-    ({ item }: { item: CountryEntry }) => {
+    (item: CountryEntry) => {
       const matchIndex = item.name.toLowerCase().indexOf(query.toLowerCase())
 
       return (
         <Pressable
+          key={item.code}
           onPress={() => {
             onCountrySelect?.(item.code)
             onSearch(item.name)
@@ -186,15 +188,13 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
         </Pressable>
       </Animated.View>
 
-      {/* Results dropdown — only when a selection handler is provided (e.g. map, not explore) */}
+      {/* Results dropdown — only when a selection handler is provided (e.g.
+          map, not explore). Plain views, not FlashList: it's at most 6 rows,
+          and a virtualized list can't measure itself reliably inside an
+          absolutely-positioned box with no fixed height. */}
       {expanded && results.length > 0 && onCountrySelect && (
         <View style={styles.dropdown}>
-          <FlashList
-            data={results}
-            renderItem={renderResult}
-            keyExtractor={(item) => item.code}
-            scrollEnabled={false}
-          />
+          {results.map(renderResult)}
         </View>
       )}
     </View>
