@@ -21,7 +21,7 @@
  *     of a scaled-up raster.
  */
 
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react'
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -194,12 +194,15 @@ export default function WorldMapNative({
    * committed <G> maps canvas→canvas (zoom, t), the viewBox maps canvas→view
    * (m, offset), and the live transform scales about the view center — so
    * z1 = s·z0 and t1 = s·t0 + (1−s)·canvasCenter + tv/m.
-   * The state update and the shared-value reset land on different threads,
-   * so a single frame of settle-jump is possible on very slow devices; at
-   * rest the transforms are equivalent by construction.
+   * At rest the transforms are equivalent by construction. The live-transform
+   * reset is deferred to the layout effect below: resetting here would reach
+   * the UI thread before React commits the re-rendered SVG, flashing a frame
+   * of the old map at identity (a visible jump on every release).
    */
+  const liveResetPending = React.useRef(false)
   const commitGesture = useCallback(
     (s: number, vx: number, vy: number) => {
+      liveResetPending.current = true
       setView((prev) => {
         const zoom = clampNumber(prev.zoom * s, MIN_ZOOM, MAX_ZOOM)
         const sEff = zoom / prev.zoom
@@ -215,12 +218,19 @@ export default function WorldMapNative({
         )
         return { zoom, tx, ty }
       })
-      scale.value = 1
-      tvx.value = 0
-      tvy.value = 0
     },
-    [m, scale, tvx, tvy],
+    [m],
   )
+
+  // Runs after React commits the SVG carrying the newly baked-in transform,
+  // so the identity reset and the re-render paint together.
+  useLayoutEffect(() => {
+    if (!liveResetPending.current) return
+    liveResetPending.current = false
+    scale.value = 1
+    tvx.value = 0
+    tvy.value = 0
+  }, [view, scale, tvx, tvy])
 
   const handleTap = useCallback(
     (x: number, y: number) => {
