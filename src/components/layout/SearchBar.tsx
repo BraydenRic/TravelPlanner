@@ -57,6 +57,9 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
 }: SearchBarProps, ref) {
   const [expanded, setExpanded] = useState(false)
   const [query, setQuery] = useState('')
+  // Set on submit: the collapsed bar shows this as a chip instead of the
+  // bare icon, so an active filter is always visible (and tappable to edit).
+  const [submittedQuery, setSubmittedQuery] = useState('')
   const [results, setResults] = useState<CountryEntry[]>([])
   const inputRef = useRef<TextInput>(null)
   const widthAnim = useSharedValue(COLLAPSED_WIDTH)
@@ -86,8 +89,26 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
   // (Submitting or picking a result collapses without clearing — see below.)
   const cancel = useCallback(() => {
     onSearch('')
+    setSubmittedQuery('')
     collapse()
   }, [onSearch, collapse])
+
+  // Submit: keep the filter and collapse straight into the saved-search chip
+  // (no shrink animation — the chip replaces the bar in place).
+  const submit = useCallback(() => {
+    const trimmed = query.trim()
+    if (!trimmed) {
+      cancel()
+      return
+    }
+    onSearch(trimmed)
+    setSubmittedQuery(trimmed)
+    Keyboard.dismiss()
+    onExpandedChange?.(false)
+    setResults([])
+    setExpanded(false)
+    widthAnim.value = COLLAPSED_WIDTH
+  }, [query, onSearch, onExpandedChange, widthAnim, cancel])
 
   useImperativeHandle(ref, () => ({ collapse: cancel }), [cancel])
 
@@ -149,6 +170,39 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
     [query, onCountrySelect, cancel],
   )
 
+  if (!expanded && submittedQuery) {
+    return (
+      <View style={styles.wrapper}>
+        <Pressable
+          onPress={expand}
+          style={[styles.container, styles.savedChip]}
+          accessibilityRole="button"
+          accessibilityLabel={`Edit search: ${submittedQuery}`}
+        >
+          <Svg width={16} height={16} viewBox="0 0 24 24">
+            <Circle
+              cx={11}
+              cy={11}
+              r={8}
+              fill="none"
+              stroke={colors.accentTeal}
+              strokeWidth={1.8}
+            />
+            <Path
+              d="M21 21 L16.65 16.65"
+              stroke={colors.accentTeal}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            />
+          </Svg>
+          <Text style={styles.savedChipText} numberOfLines={1}>
+            {submittedQuery}
+          </Text>
+        </Pressable>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.wrapper}>
       <Animated.View
@@ -167,10 +221,7 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
             placeholder={placeholder}
             placeholderTextColor={colors.textTertiary}
             returnKeyType="search"
-            onSubmitEditing={() => {
-              onSearch(query)
-              collapse()
-            }}
+            onSubmitEditing={submit}
           />
         )}
 
@@ -236,6 +287,21 @@ const styles = StyleSheet.create({
       // tabs) shows through the input. Use the solid card color instead.
       default: { backgroundColor: colors.bgL1 },
     }),
+  },
+  savedChip: {
+    width: undefined,
+    maxWidth: 200,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderColor: colors.tealAlpha20,
+  },
+  savedChipText: {
+    fontFamily: fontFamily.medium,
+    fontSize: fontSize.sm,
+    color: colors.accentTeal,
+    flexShrink: 1,
   },
   iconButton: {
     position: 'absolute',
