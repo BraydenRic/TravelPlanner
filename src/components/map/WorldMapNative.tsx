@@ -392,7 +392,18 @@ export default function WorldMapNative({
       <View style={styles.container} onLayout={onLayout} testID={testID}>
         {layout.w > 0 && (
           <Animated.View style={[styles.canvas, animatedStyle]}>
-            <Svg width="100%" height="100%" viewBox={`0 0 ${MAP_W} ${MAP_H}`}>
+            {/* The SVG bleeds one full viewport past every edge so live
+                drags/pinches reveal real map instead of blank space (the
+                gesture moves this layer; only on release does the transform
+                commit and re-render). The viewBox spans the same bleed in
+                canvas units, so the view→canvas mapping — and therefore all
+                tap/clamp math — is unchanged: (p − offset) / m. */}
+            <Svg
+              width={layout.w * 3}
+              height={layout.h * 3}
+              viewBox={`${-(offsetX + layout.w) / m} ${-(offsetY + layout.h) / m} ${(layout.w * 3) / m} ${(layout.h * 3) / m}`}
+              style={{ position: 'absolute', left: -layout.w, top: -layout.h }}
+            >
               <G transform={`translate(${view.tx}, ${view.ty}) scale(${view.zoom})`}>
                 {multiMemberEntries.length > 0 && (
                   <Defs>
