@@ -2,9 +2,9 @@
  * Explore screen — Browse countries by continent, search, top rated.
  */
 
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Image, Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View, Pressable } from 'react-native'
-import { FlashList } from '@shopify/flash-list'
+import { FlashList, type FlashListRef } from '@shopify/flash-list'
 import * as Haptics from 'expo-haptics'
 import { router } from 'expo-router'
 import { colors } from '@theme/colors'
@@ -64,6 +64,14 @@ export default function ExploreScreen() {
   const searchRef = useRef<SearchBarHandle>(null)
   const [searchExpanded, setSearchExpanded] = useState(false)
   const dismissSearch = useCallback(() => searchRef.current?.collapse(), [])
+
+  // Changing the filter swaps the dataset — always restart from the top.
+  // (FlashList v2 otherwise anchors to the previous scroll position, which
+  // lands mid-list when a short filtered set swaps back to the full one.)
+  const listRef = useRef<FlashListRef<(typeof COUNTRIES)[number]>>(null)
+  useEffect(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: false })
+  }, [activeContinent, searchQuery])
 
   const renderCountryItem = useCallback(
     ({ item: country }: { item: typeof COUNTRIES[number] }) => {
@@ -161,6 +169,7 @@ export default function ExploreScreen() {
 
       {/* Country list */}
       <FlashList
+        ref={listRef}
         data={filteredCountries}
         renderItem={renderCountryItem}
         keyExtractor={(item) => item.code}
@@ -168,6 +177,7 @@ export default function ExploreScreen() {
         key={numColumns}
         contentContainerStyle={styles.grid}
         showsVerticalScrollIndicator={false}
+        maintainVisibleContentPosition={{ disabled: true }}
       />
     </View>
   )
