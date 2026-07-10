@@ -34,6 +34,9 @@ interface SearchBarProps {
       tap-away backdrop (touches outside this small overlay can't be caught
       from inside it, so dismissal has to live at screen level). */
   onExpandedChange?: (expanded: boolean) => void
+  /** Width the bar springs open to. Hosts where the bar takes over its row
+      (explore header) pass the full row width. */
+  expandedWidth?: number
   placeholder?: string
   style?: object
 }
@@ -49,6 +52,7 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
   onSearch,
   onCountrySelect,
   onExpandedChange,
+  expandedWidth = EXPANDED_WIDTH,
   placeholder = 'Search countries...',
 }: SearchBarProps, ref) {
   const [expanded, setExpanded] = useState(false)
@@ -61,9 +65,9 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     setExpanded(true)
     onExpandedChange?.(true)
-    widthAnim.value = withSpring(EXPANDED_WIDTH, springs.standard)
+    widthAnim.value = withSpring(expandedWidth, springs.standard)
     setTimeout(() => inputRef.current?.focus(), 150)
-  }, [widthAnim, onExpandedChange])
+  }, [widthAnim, onExpandedChange, expandedWidth])
 
   const collapse = useCallback(() => {
     Keyboard.dismiss()

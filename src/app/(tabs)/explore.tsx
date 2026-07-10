@@ -118,11 +118,14 @@ export default function ExploreScreen() {
       <View style={styles.header}>
         {!searchExpanded && <Text style={styles.title}>Explore</Text>}
         {/* No onCountrySelect here on purpose: explore shows matches by
-            live-filtering the country cards below, not an attached dropdown */}
+            live-filtering the country cards below, not an attached dropdown.
+            Expanded, the bar fills the whole header row — a 260pt pill next
+            to the hidden title left a dead region that read as a broken box. */}
         <SearchBar
           ref={searchRef}
           onSearch={handleSearch}
           onExpandedChange={setSearchExpanded}
+          expandedWidth={width - spacing.lg * 2}
           placeholder="Search countries..."
         />
       </View>
