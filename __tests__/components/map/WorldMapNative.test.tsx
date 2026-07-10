@@ -9,7 +9,7 @@
 
 import React from 'react'
 import { render, fireEvent, waitFor } from '@testing-library/react-native'
-import { Path, Text as SvgText } from 'react-native-svg'
+import { Line, Path, Text as SvgText } from 'react-native-svg'
 import type { TapGesture } from 'react-native-gesture-handler'
 import {
   fireGestureHandler,
@@ -107,7 +107,7 @@ describe('WorldMapNative', () => {
     })
   })
 
-  it('uses stripe patterns when multiple group members mark a country', async () => {
+  it('draws clipped stripe lines when multiple group members mark a country', async () => {
     const { getByTestId, UNSAFE_getAllByType } = render(
       <WorldMapNative
         {...baseProps}
@@ -122,8 +122,11 @@ describe('WorldMapNative', () => {
     layoutMap(getByTestId)
 
     await waitFor(() => {
+      // Two members on US → alternating opaque stripe lines (member colors
+      // pre-blended over the land fill), clipped to the country outline.
+      const strokes = new Set(UNSAFE_getAllByType(Line).map((l) => l.props.stroke as string))
+      expect(strokes.size).toBe(2)
       const fills = UNSAFE_getAllByType(Path).map((p) => p.props.fill as string)
-      expect(fills).toContain('url(#grp-stripes-US)') // two members → stripes
       expect(fills).toContain('#F5A623CC') // single member → solid color
     })
   })

@@ -34,7 +34,7 @@ import {
   View,
   type LayoutChangeEvent,
 } from 'react-native'
-import Svg, { Defs, Path, Pattern, Rect, Text as SvgText } from 'react-native-svg'
+import Svg, { ClipPath, Defs, G, Line, Path, Text as SvgText } from 'react-native-svg'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   runOnJS,
@@ -48,7 +48,6 @@ import {
   buildGroupCountryColors,
   countryAtPoint,
   getCountryFill,
-  groupPatternId,
   groupStripeWidth,
   interiorCentroid,
   labelFontSize,
@@ -89,6 +88,64 @@ function clampOffsetAxis(o: number, extent: number, viewDim: number): number {
   'worklet'
   if (extent <= viewDim) return (viewDim - extent) / 2
   return Math.min(0, Math.max(viewDim - extent, o))
+}
+
+function groupClipId(code: string): string {
+  return `grp-clip-${code}`
+}
+
+/**
+ * Pre-blend a member color over the land fill (≈80%, matching the `CC`
+ * alpha used for single-member fills) so stripes can be painted fully
+ * opaque — translucent strokes re-expose anti-aliasing gaps as dark
+ * hairlines wherever two stripes abut.
+ */
+function mixHex(fg: string, bg: string, t: number): string {
+  const f = parseInt(fg.slice(1), 16)
+  const b = parseInt(bg.slice(1), 16)
+  const ch = (shift: number) =>
+    Math.round(((f >> shift) & 0xff) * t + ((b >> shift) & 0xff) * (1 - t))
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`
+}
+
+/**
+ * Stripe geometry for multi-member countries: real 45° lines clipped to the
+ * country outline instead of an SVG <Pattern>. Native rasterizes pattern
+ * tiles one by one and their anti-aliased edges never quite meet, which
+ * showed as black hairlines between stripes on device — continuous strokes
+ * have no tile boundaries to seam.
+ */
+function buildStripeLines(
+  bounds: [[number, number], [number, number]],
+  stripeWidth: number,
+  stripeColors: string[],
+): { x1: number; y1: number; x2: number; y2: number; color: string }[] {
+  const [[x0, y0], [x1, y1]] = bounds
+  const cx = (x0 + x1) / 2
+  const cy = (y0 + y1) / 2
+  // Half the bbox diagonal reaches every corner from the center; pad by one
+  // stripe so the outermost stripes fully cross the outline.
+  const half = Math.hypot(x1 - x0, y1 - y0) / 2 + stripeWidth
+  // Lines run along d = (1,1)/√2 and are spaced along the normal
+  // n = (1,−1)/√2: a point is p = across·n + along·d.
+  const inv = Math.SQRT1_2
+  const centerAlong = (cx + cy) * inv
+  const centerAcross = (cx - cy) * inv
+  const count = Math.ceil((2 * half) / stripeWidth)
+  const lines = []
+  for (let k = 0; k < count; k++) {
+    const across = centerAcross - half + (k + 0.5) * stripeWidth
+    const a1 = centerAlong - half
+    const a2 = centerAlong + half
+    lines.push({
+      x1: (across + a1) * inv,
+      y1: (a1 - across) * inv,
+      x2: (across + a2) * inv,
+      y2: (a2 - across) * inv,
+      color: stripeColors[k % stripeColors.length],
+    })
+  }
+  return lines
 }
 
 // ---------------------------------------------------------------------------
@@ -167,13 +224,14 @@ export default function WorldMapNative({
     [],
   )
 
+  const pathGen = useMemo(() => geoPath(projection), [projection])
+
   const countryPaths = useMemo(() => {
     if (!countries) return null
-    const pathGen = geoPath(projection)
     return countries
       .map(({ code, feature }) => ({ code, feature, d: pathGen(feature as never) ?? '' }))
       .filter((entry) => entry.d !== '')
-  }, [countries, projection])
+  }, [countries, pathGen])
 
   // The 800×600 canvas fits the layout scaled by m ("meet" behaviour). The
   // surface renders oversample× that size and the view transform scales it
@@ -361,39 +419,13 @@ export default function WorldMapNative({
             <Svg width={surfW} height={surfH} viewBox={`0 0 ${MAP_W} ${MAP_H}`}>
               {multiMemberEntries.length > 0 && (
                 <Defs>
-                  {multiMemberEntries.map(([code, memberColors]) => {
-                    const feature = countryPaths.find((c) => c.code === code)?.feature
-                    // The shared width is tuned for the web's big canvas; a
-                    // phone renders the canvas at roughly half scale, where
-                    // hairline stripes alias into moiré on the rasterized
-                    // surface. Floor them at a constant on-screen width at
-                    // the settled zoom.
-                    const stripe = Math.max(
-                      groupStripeWidth(feature),
-                      5 / (m * settledZoom),
-                    )
-                    const width = stripe * memberColors.length
+                  {multiMemberEntries.map(([code]) => {
+                    const entry = countryPaths.find((c) => c.code === code)
+                    if (!entry) return null
                     return (
-                      <Pattern
-                        key={code}
-                        id={groupPatternId(code)}
-                        patternUnits="userSpaceOnUse"
-                        width={width}
-                        height={stripe}
-                        patternTransform="rotate(45)"
-                      >
-                        {memberColors.map((c, i) => (
-                          <Rect
-                            key={c}
-                            x={i * stripe}
-                            y={0}
-                            width={stripe}
-                            height={stripe}
-                            fill={c}
-                            opacity={0.8}
-                          />
-                        ))}
-                      </Pattern>
+                      <ClipPath key={code} id={groupClipId(code)}>
+                        <Path d={entry.d} />
+                      </ClipPath>
                     )
                   })}
                 </Defs>
@@ -410,7 +442,9 @@ export default function WorldMapNative({
                     // enough that shared white borders stay visible
                     fill = `${memberColors[0]}CC`
                   } else {
-                    fill = `url(#${groupPatternId(code)})`
+                    // Multi-member: neutral base — the stripe overlay pass
+                    // below paints the member colors on top.
+                    fill = colors.mapLand
                   }
                 } else {
                   fill = getCountryFill(code, visitedCountries, activeCategory)
@@ -426,6 +460,56 @@ export default function WorldMapNative({
                     selected={selectedCountry === code}
                     strokeScale={1 / settledZoom}
                   />
+                )
+              })}
+
+              {/* Multi-member stripes paint after the base fills as opaque
+                  45° lines clipped to each country (see buildStripeLines for
+                  why not <Pattern>). The border re-paints on top because the
+                  stripes cover its inner half. */}
+              {multiMemberEntries.map(([code, memberColors]) => {
+                const entry = countryPaths.find((c) => c.code === code)
+                if (!entry) return null
+                // The shared width is tuned for the web's big canvas; a
+                // phone renders the canvas at roughly half scale, where
+                // hairline stripes alias into moiré on the rasterized
+                // surface. Floor them at a constant on-screen width at the
+                // settled zoom.
+                const stripe = Math.max(
+                  groupStripeWidth(entry.feature),
+                  5 / (m * settledZoom),
+                )
+                const lines = buildStripeLines(
+                  pathGen.bounds(entry.feature as never),
+                  stripe,
+                  memberColors.map((c) => mixHex(c, colors.mapLand, 0.8)),
+                )
+                const selected = selectedCountry === code
+                return (
+                  <G key={`stripes-${code}`}>
+                    <G clipPath={`url(#${groupClipId(code)})`}>
+                      {lines.map((l, i) => (
+                        <Line
+                          key={i}
+                          x1={l.x1}
+                          y1={l.y1}
+                          x2={l.x2}
+                          y2={l.y2}
+                          stroke={l.color}
+                          // Slightly wider than the spacing so neighbours
+                          // overlap — abutting opaque strokes still leave an
+                          // anti-aliased hairline of background between them.
+                          strokeWidth={stripe + 0.5}
+                        />
+                      ))}
+                    </G>
+                    <Path
+                      d={entry.d}
+                      fill="none"
+                      stroke={selected ? colors.accentTeal : 'rgba(255,255,255,0.85)'}
+                      strokeWidth={(selected ? 1 : 0.8) / settledZoom}
+                    />
+                  </G>
                 )
               })}
 
