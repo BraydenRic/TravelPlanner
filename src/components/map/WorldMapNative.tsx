@@ -64,11 +64,11 @@ import type { WorldMapProps } from './WorldMap'
 const MAP_W = 800
 const MAP_H = 600
 const MIN_ZOOM = 1
-const MAX_ZOOM = 8
+const MAX_ZOOM = 12
 
 // The surface renders larger than its fitted on-screen size by this factor,
 // so the gesture zoom magnifies a supersampled raster (blur at MAX_ZOOM is
-// MAX_ZOOM/OVERSAMPLE ≈ 2.7× instead of 8×). Capped in points so the backing
+// MAX_ZOOM/OVERSAMPLE = 4× instead of 12×). Capped in points so the backing
 // texture stays under common GPU limits on dense screens (~1300pt × 3px/pt
 // ≈ 3.9k px, under the 4k ceiling of older devices).
 const OVERSAMPLE = 3

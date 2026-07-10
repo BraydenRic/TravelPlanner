@@ -86,10 +86,18 @@ export default function GroupDetailScreen() {
     }
   }, [id, addGroup, setGroupMembers])
 
+  const mapFetchSeq = useRef(0)
   const refetchMap = useCallback(async () => {
     if (!id) return
+    const seq = ++mapFetchSeq.current
     try {
       const mapEntries = await getGroupMapData(id)
+      // Discard stale snapshots: if a write started while this request was
+      // in flight (rapid taps), the optimistic state is newer than this
+      // response and applying it would flick the country to the wrong state
+      // for a moment — the queue refetches again when it drains. Same for a
+      // newer refetch overtaking this one.
+      if (pendingWrites.current > 0 || seq !== mapFetchSeq.current) return
       setGroupMapData(id, mapEntries)
     } catch {
       // non-fatal
