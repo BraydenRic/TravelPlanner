@@ -9,13 +9,15 @@ import Svg, { Circle, Path } from 'react-native-svg'
 import Animated, {
   useSharedValue,
   withSpring,
-  useAnimatedProps,
+  useAnimatedStyle,
 } from 'react-native-reanimated'
 import { colors } from '@theme/colors'
 import { fontFamily, fontSize } from '@theme/typography'
 import { springs } from '@theme/animations'
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle)
+// The ring renders at its final sweep and the badge fades/scales in as a
+// view. Do not animate SVG attributes (useAnimatedProps) here — that
+// crashes under Reanimated 4's new architecture with react-native-svg.
 
 interface GlobalRatingBadgeProps {
   score: number // 0–5
@@ -39,21 +41,29 @@ function GlobalRatingBadgeInner({
   const circumference = 2 * Math.PI * svgRadius
   const strokeWidth = isLarge ? 5 : 4
 
-  const progressAnim = useSharedValue(0)
+  const appearScale = useSharedValue(0.85)
+  const appearOpacity = useSharedValue(0)
 
   useEffect(() => {
-    progressAnim.value = withSpring(score / 5, springs.gentle)
+    appearScale.value = withSpring(1, springs.gentle)
+    appearOpacity.value = withSpring(1, springs.standard)
     return () => {
-      progressAnim.value = 0
+      appearScale.value = 0.85
+      appearOpacity.value = 0
     }
-  }, [score, progressAnim])
+  }, [appearScale, appearOpacity])
 
-  const animatedRingProps = useAnimatedProps(() => ({
-    strokeDashoffset: circumference - progressAnim.value * circumference,
+  const entranceStyle = useAnimatedStyle(() => ({
+    opacity: appearOpacity.value,
+    transform: [{ scale: appearScale.value }],
   }))
 
+  const ringDashoffset = circumference - (score / 5) * circumference
+
   return (
-    <View style={[{ width: containerSize, height: containerSize }, style]}>
+    <Animated.View
+      style={[{ width: containerSize, height: containerSize }, style, entranceStyle]}
+    >
       <Svg
         width={containerSize}
         height={containerSize}
@@ -68,8 +78,8 @@ function GlobalRatingBadgeInner({
           stroke="rgba(255,255,255,0.06)"
           strokeWidth={strokeWidth}
         />
-        {/* Animated progress ring */}
-        <AnimatedCircle
+        {/* Progress ring */}
+        <Circle
           cx={containerSize / 2}
           cy={containerSize / 2}
           r={svgRadius}
@@ -77,10 +87,10 @@ function GlobalRatingBadgeInner({
           stroke={colors.accentAmber}
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
+          strokeDashoffset={ringDashoffset}
           strokeLinecap="round"
           // Rotate so progress starts at top
           transform={`rotate(-90 ${containerSize / 2} ${containerSize / 2})`}
-          animatedProps={animatedRingProps}
         />
 
         {/* Star icon below number — positioned at bottom */}
@@ -108,7 +118,7 @@ function GlobalRatingBadgeInner({
           <Text style={styles.label}>{label}</Text>
         )}
       </View>
-    </View>
+    </Animated.View>
   )
 }
 

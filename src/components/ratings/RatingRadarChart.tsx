@@ -1,23 +1,25 @@
 /**
  * RatingRadarChart — 10-axis spider/radar chart using react-native-svg.
- * Animated draw-in on mount, optional group member overlays.
+ * Animated grow-in on mount, optional group member overlays.
+ *
+ * The entrance animates the wrapping view (scale + opacity), never SVG
+ * attributes: useAnimatedProps on react-native-svg elements crashes under
+ * Reanimated 4's new architecture (the v3 JS fallback path is gone).
  */
 
 import React, { memo, useEffect, useMemo } from 'react'
-import { Platform, StyleProp, View, ViewStyle } from 'react-native'
+import { Platform, StyleProp, ViewStyle } from 'react-native'
 import Svg, { Polygon, Circle, Line, Text as SvgText } from 'react-native-svg'
 import Animated, {
   useSharedValue,
   withSpring,
-  useAnimatedProps,
+  useAnimatedStyle,
 } from 'react-native-reanimated'
 import { colors } from '@theme/colors'
 import { fontFamily } from '@theme/typography'
 import { springs } from '@theme/animations'
 import { RATING_CATEGORIES } from '@constants/ratingCategories'
 import type { RatingCategory, MemberColor } from '@typedefs/database'
-
-const AnimatedPolygon = Animated.createAnimatedComponent(Polygon)
 
 interface MemberRadar {
   color: MemberColor
@@ -93,28 +95,30 @@ function RatingRadarChartInner({
     [ratings],
   )
 
-  // Animate scale from 0 to 1 on mount
-  const scaleAnim = useSharedValue(0)
+  // Grow the whole chart in from the center on mount
+  const scaleAnim = useSharedValue(0.6)
+  const opacityAnim = useSharedValue(0)
   useEffect(() => {
     scaleAnim.value = withSpring(1, springs.gentle)
+    opacityAnim.value = withSpring(1, springs.standard)
     return () => {
-      scaleAnim.value = 0
+      scaleAnim.value = 0.6
+      opacityAnim.value = 0
     }
-  }, [scaleAnim])
+  }, [scaleAnim, opacityAnim])
 
-  const animatedProps = useAnimatedProps(() => {
-    // Interpolate from center point to actual polygon
-    const interpolatedValues = ratingValues.map((v) => v * scaleAnim.value)
-    return {
-      points: ratingsToPoints(cx, cy, maxR, interpolatedValues),
-    }
-  })
+  const entranceStyle = useAnimatedStyle(() => ({
+    opacity: opacityAnim.value,
+    transform: [{ scale: scaleAnim.value }],
+  }))
+
+  const dataPoints = ratingsToPoints(cx, cy, maxR, ratingValues)
 
   // Grid concentric polygons
   const gridLevels = Array.from({ length: LEVELS }, (_, i) => (i + 1) / LEVELS)
 
   return (
-    <View style={[{ width: size, height: size }, style]}>
+    <Animated.View style={[{ width: size, height: size }, style, entranceStyle]}>
       <Svg
         width={size}
         height={size}
@@ -171,9 +175,9 @@ function RatingRadarChartInner({
           )
         })}
 
-        {/* Main data polygon — animated */}
-        <AnimatedPolygon
-          animatedProps={animatedProps}
+        {/* Main data polygon */}
+        <Polygon
+          points={dataPoints}
           fill={`${colors.accentTeal}4D`}
           stroke={colors.accentTeal}
           strokeWidth={2}
@@ -207,7 +211,7 @@ function RatingRadarChartInner({
           )
         })}
       </Svg>
-    </View>
+    </Animated.View>
   )
 }
 
