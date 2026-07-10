@@ -23,7 +23,6 @@ import Svg, { Circle, Path, Line } from 'react-native-svg'
 import * as Haptics from 'expo-haptics'
 import { Platform } from 'react-native'
 import { preloadNativeAuth, signInWithGoogle } from '@lib/auth'
-import { useUIStore } from '@stores/uiStore'
 import { colors } from '@theme/colors'
 import { borderRadius, spacing } from '@theme/spacing'
 import { fontFamily, fontSize } from '@theme/typography'
@@ -142,9 +141,8 @@ function GoogleLogo() {
 }
 
 export default function LoginScreen() {
-  const { addToast } = useUIStore()
   const router = useRouter()
-  // Inline notice under the buttons — toasts have no host component yet, so
+  // Inline notice under the buttons — nothing renders toasts app-wide, so
   // feedback must render here or the user sees nothing happen.
   const [notice, setNotice] = useState<{ text: string; isError: boolean } | null>(null)
   const [signingIn, setSigningIn] = useState(false)
@@ -183,11 +181,10 @@ export default function LoginScreen() {
         if (signedIn && Platform.OS !== 'web') router.replace('/(tabs)/map')
       })
       .catch(() => {
-        addToast({ message: 'Sign-in failed. Please try again.', type: 'error' })
         setNotice({ text: 'Sign-in failed. Please try again.', isError: true })
       })
       .finally(() => setSigningIn(false))
-  }, [addToast, router])
+  }, [router])
 
   return (
     <View style={styles.container}>

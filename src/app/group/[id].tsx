@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
+import * as Clipboard from 'expo-clipboard'
 import * as Haptics from 'expo-haptics'
 import { useGroupStore } from '@stores/groupStore'
 import { useAuthStore } from '@stores/authStore'
@@ -188,14 +189,16 @@ export default function GroupDetailScreen() {
 
   const handleCopyCode = useCallback(async () => {
     if (!inviteCode) return
-    if (Platform.OS === 'web') {
-      try {
-        await (navigator as unknown as { clipboard: { writeText: (t: string) => Promise<void> } }).clipboard.writeText(inviteCode)
-        setCopiedCode(true)
-        setTimeout(() => setCopiedCode(false), 2000)
-      } catch {
-        // ignore
-      }
+    try {
+      // expo-clipboard covers native and web — the previous web-only
+      // navigator.clipboard branch made "Tap to copy" a silent no-op on
+      // phones.
+      await Clipboard.setStringAsync(inviteCode)
+      if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      setCopiedCode(true)
+      setTimeout(() => setCopiedCode(false), 2000)
+    } catch {
+      // ignore
     }
   }, [inviteCode])
 

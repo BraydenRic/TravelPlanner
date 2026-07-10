@@ -4,6 +4,7 @@
 
 import { Stack, router } from 'expo-router'
 import { useEffect } from 'react'
+import { AppState } from 'react-native'
 import { GestureRoot } from '@components/GestureRoot'
 import { useFonts } from 'expo-font'
 import {
@@ -14,6 +15,7 @@ import {
 } from '@expo-google-fonts/inter'
 import { SpaceMono_400Regular } from '@expo-google-fonts/space-mono'
 import { supabase } from '@lib/supabase'
+import { checkSessionTimeout } from '@lib/auth'
 import { useAuthStore } from '@stores/authStore'
 import { usePlacesStore } from '@stores/placesStore'
 import { ErrorBoundary } from '@lib/errorBoundary'
@@ -37,6 +39,18 @@ export default function RootLayout() {
   // Error monitoring — no-op without EXPO_PUBLIC_SENTRY_DSN
   useEffect(() => {
     initMonitoring()
+  }, [])
+
+  // 30-day inactivity sign-out (mitigation AS-01, native only — the helper
+  // no-ops on web). Checked at launch and every return to the foreground;
+  // it signs out itself and the auth listener below handles the redirect.
+  useEffect(() => {
+    const check = () => void checkSessionTimeout().catch(() => {})
+    check()
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') check()
+    })
+    return () => sub.remove()
   }, [])
 
   // Auth state listener — sets user, only redirects on explicit sign-out

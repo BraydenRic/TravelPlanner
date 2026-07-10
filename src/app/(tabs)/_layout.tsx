@@ -2,11 +2,20 @@
  * Tab layout — uses custom BottomTabBar component.
  */
 
-import { Tabs } from 'expo-router'
+import { Redirect, Tabs } from 'expo-router'
 import { BottomTabBar } from '@components/layout/BottomTabBar'
+import { useAuthStore } from '@stores/authStore'
 import { colors } from '@theme/colors'
 
 export default function TabLayout() {
+  const { isAuthenticated, isLoading } = useAuthStore()
+
+  // The index route redirects unauthenticated visitors, but deep links (a
+  // typed URL on web, a notification tap) land here directly — never render
+  // the authed app without a session.
+  if (isLoading) return null
+  if (!isAuthenticated) return <Redirect href="/(auth)/login" />
+
   return (
     <Tabs
       tabBar={(props) => <BottomTabBar {...(props as unknown as Parameters<typeof BottomTabBar>[0])} />}
