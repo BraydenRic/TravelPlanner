@@ -120,6 +120,7 @@ export default function ExploreScreen() {
         <SearchBar
           ref={searchRef}
           onSearch={handleSearch}
+          onCountrySelect={handleCountryPress}
           onExpandedChange={setSearchExpanded}
           placeholder="Search countries..."
         />

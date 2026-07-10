@@ -78,7 +78,14 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
     }, 200)
   }, [widthAnim, onExpandedChange])
 
-  useImperativeHandle(ref, () => ({ collapse }), [collapse])
+  // Dismissing without submitting is a cancel: the host's filter resets too.
+  // (Submitting or picking a result collapses without clearing — see below.)
+  const cancel = useCallback(() => {
+    onSearch('')
+    collapse()
+  }, [onSearch, collapse])
+
+  useImperativeHandle(ref, () => ({ collapse: cancel }), [cancel])
 
   const handleTextChange = useCallback(
     (text: string) => {
@@ -110,8 +117,9 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
           key={item.code}
           onPress={() => {
             onCountrySelect?.(item.code)
-            onSearch(item.name)
-            collapse()
+            // Selecting navigates/acts on the country — the search itself is
+            // done, so reset rather than leave a stale filter behind.
+            cancel()
           }}
           style={styles.resultItem}
         >
@@ -134,7 +142,7 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
         </Pressable>
       )
     },
-    [query, onSearch, onCountrySelect, collapse],
+    [query, onCountrySelect, cancel],
   )
 
   return (
@@ -164,7 +172,7 @@ const SearchBarInner = forwardRef<SearchBarHandle, SearchBarProps>(function Sear
 
         {/* Search icon — absolutely positioned, no DOM boundary with input */}
         <Pressable
-          onPress={expanded ? collapse : expand}
+          onPress={expanded ? cancel : expand}
           style={styles.iconButton}
           accessibilityRole="button"
           accessibilityLabel={expanded ? 'Close search' : 'Open search'}
