@@ -363,7 +363,15 @@ export default function WorldMapNative({
                 <Defs>
                   {multiMemberEntries.map(([code, memberColors]) => {
                     const feature = countryPaths.find((c) => c.code === code)?.feature
-                    const stripe = groupStripeWidth(feature)
+                    // The shared width is tuned for the web's big canvas; a
+                    // phone renders the canvas at roughly half scale, where
+                    // hairline stripes alias into moiré on the rasterized
+                    // surface. Floor them at a constant on-screen width at
+                    // the settled zoom.
+                    const stripe = Math.max(
+                      groupStripeWidth(feature),
+                      5 / (m * settledZoom),
+                    )
                     const width = stripe * memberColors.length
                     return (
                       <Pattern

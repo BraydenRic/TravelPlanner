@@ -93,6 +93,21 @@ describe('buildGroupCountryColors', () => {
     expect(map.get('CA')).toEqual(['#F5A623'])
   })
 
+  it('orders colors deterministically regardless of row order', () => {
+    // An optimistic toggle appends the member's color last, but the
+    // reconciling refetch returns rows in server order — both must produce
+    // the same stripe sequence or the pattern visibly flips after a tap.
+    const rows = [
+      { user_id: 'u2', color: '#F5A623' as const, country_code: 'US', city_id: null, category: 'been' as const },
+      { user_id: 'u1', color: '#00F5D4' as const, country_code: 'US', city_id: null, category: 'been' as const },
+    ]
+    expect(buildGroupCountryColors(rows).get('US')).toEqual(['#00F5D4', '#F5A623'])
+    expect(buildGroupCountryColors([...rows].reverse()).get('US')).toEqual([
+      '#00F5D4',
+      '#F5A623',
+    ])
+  })
+
   it('returns an empty map for non-array payloads', () => {
     expect(buildGroupCountryColors(undefined).size).toBe(0)
     expect(buildGroupCountryColors(null).size).toBe(0)

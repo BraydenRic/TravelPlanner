@@ -154,6 +154,11 @@ export function buildGroupCountryColors(
     if (!existing.includes(entry.color)) existing.push(entry.color)
     byCountry.set(entry.country_code, existing)
   }
+  // Deterministic order, independent of row order: an optimistic toggle
+  // appends the member's color last, while the reconciling refetch returns
+  // rows in server order — without sorting, the stripe sequence visibly
+  // flips a moment after the tap (and the identical-looking map redraws).
+  for (const memberColors of byCountry.values()) memberColors.sort()
   return byCountry
 }
 
