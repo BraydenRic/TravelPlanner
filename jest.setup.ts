@@ -51,14 +51,6 @@ jest.mock('expo-image-manipulator', () => ({
   SaveFormat: { JPEG: 'jpeg', PNG: 'png' },
 }))
 
-jest.mock('expo-notifications', () => ({
-  getPermissionsAsync: jest.fn(),
-  requestPermissionsAsync: jest.fn(),
-  getExpoPushTokenAsync: jest.fn(),
-  setNotificationHandler: jest.fn(),
-  scheduleNotificationAsync: jest.fn(),
-}))
-
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => ({
     auth: {

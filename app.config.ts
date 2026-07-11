@@ -55,10 +55,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       photosPermission: 'Driftmark needs photo access to add travel photos.',
       cameraPermission: 'Driftmark needs camera access to take travel photos.',
     }],
-    ['expo-notifications', {
-      icon: './assets/icons/notification-icon.png',
-      color: '#00F5D4',
-    }],
     'expo-font',
     'expo-web-browser',
   ],

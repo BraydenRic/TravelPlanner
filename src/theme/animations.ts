@@ -1,8 +1,8 @@
 /**
  * Animation spring configs and duration constants for Driftmark.
  *
- * Use these presets with react-native-reanimated's withSpring() or
- * moti's `animate` prop. Never hardcode animation values in components.
+ * Use these presets with react-native-reanimated's withSpring().
+ * Never hardcode animation values in components.
  */
 
 /**

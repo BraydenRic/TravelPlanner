@@ -54,7 +54,6 @@
   "include": [
     "src/**/*",
     "__tests__/**/*",
-    "nativewind-env.d.ts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
