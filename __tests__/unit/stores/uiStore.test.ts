@@ -15,12 +15,7 @@ beforeEach(() => {
   // Re-initialise by calling each action to their defaults
   const store = useUIStore.getState()
   store.setActiveCategory('been')
-  store.setMapZoom(2)
   store.clearDrillDown()
-  store.setOffline(false)
-  // Clear all toasts by removing them individually
-  const { toasts } = useUIStore.getState()
-  toasts.forEach((t) => store.removeToast(t.id))
 })
 
 // ---------------------------------------------------------------------------
@@ -73,87 +68,6 @@ describe('useUIStore — clearDrillDown', () => {
 
     expect(useUIStore.getState().activeDrillDownCountry).toBeNull()
     expect(useUIStore.getState().activeDrillDownCity).toBeNull()
-  })
-})
-
-// ---------------------------------------------------------------------------
-// addToast
-// ---------------------------------------------------------------------------
-
-describe('useUIStore — addToast', () => {
-  it('adds a toast with a generated id', () => {
-    useUIStore.getState().addToast({ message: 'Hello', type: 'success' })
-
-    const { toasts } = useUIStore.getState()
-    expect(toasts).toHaveLength(1)
-    expect(toasts[0]?.message).toBe('Hello')
-    expect(toasts[0]?.type).toBe('success')
-    expect(toasts[0]?.id).toBeDefined()
-    expect(typeof toasts[0]?.id).toBe('string')
-    expect(toasts[0]?.id.length).toBeGreaterThan(0)
-  })
-
-  it('each toast gets a unique id', () => {
-    useUIStore.getState().addToast({ message: 'Toast 1', type: 'info' })
-    useUIStore.getState().addToast({ message: 'Toast 2', type: 'error' })
-
-    const { toasts } = useUIStore.getState()
-    expect(toasts).toHaveLength(2)
-    expect(toasts[0]?.id).not.toBe(toasts[1]?.id)
-  })
-
-  it('preserves existing toasts when adding a new one', () => {
-    useUIStore.getState().addToast({ message: 'First', type: 'success' })
-    useUIStore.getState().addToast({ message: 'Second', type: 'error' })
-
-    const { toasts } = useUIStore.getState()
-    expect(toasts).toHaveLength(2)
-    expect(toasts[0]?.message).toBe('First')
-    expect(toasts[1]?.message).toBe('Second')
-  })
-})
-
-// ---------------------------------------------------------------------------
-// removeToast
-// ---------------------------------------------------------------------------
-
-describe('useUIStore — removeToast', () => {
-  it('removes only the toast with the matching id', () => {
-    useUIStore.getState().addToast({ message: 'Keep me', type: 'info' })
-    useUIStore.getState().addToast({ message: 'Remove me', type: 'error' })
-
-    const { toasts } = useUIStore.getState()
-    const toRemove = toasts.find((t) => t.message === 'Remove me')!
-
-    useUIStore.getState().removeToast(toRemove.id)
-
-    const remaining = useUIStore.getState().toasts
-    expect(remaining).toHaveLength(1)
-    expect(remaining[0]?.message).toBe('Keep me')
-  })
-
-  it('is a no-op when id does not exist', () => {
-    useUIStore.getState().addToast({ message: 'Toast', type: 'info' })
-    useUIStore.getState().removeToast('nonexistent-id')
-
-    expect(useUIStore.getState().toasts).toHaveLength(1)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// setOffline
-// ---------------------------------------------------------------------------
-
-describe('useUIStore — setOffline', () => {
-  it('sets isOffline to true', () => {
-    useUIStore.getState().setOffline(true)
-    expect(useUIStore.getState().isOffline).toBe(true)
-  })
-
-  it('sets isOffline to false', () => {
-    useUIStore.getState().setOffline(true)
-    useUIStore.getState().setOffline(false)
-    expect(useUIStore.getState().isOffline).toBe(false)
   })
 })
 

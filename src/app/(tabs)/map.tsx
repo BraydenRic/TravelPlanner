@@ -20,9 +20,9 @@ import { CategoryTabs } from '@components/layout/CategoryTabs'
 import { SearchBar, type SearchBarHandle } from '@components/layout/SearchBar'
 import { RatingForm } from '@components/ratings/RatingForm'
 import { useMap } from '@hooks/useMap'
-import { getCitiesByCountry, createPlace, updatePlace, deletePlace, getPlaceByCountryAndCity, getPlaces } from '@services/places'
+import { getCitiesByCountry, createPlace, updatePlace, deletePlace, getPlaceByCountryAndCity } from '@services/places'
 import { upsertPlaceRatings, getPlaceRatings, computeOverallScore } from '@services/ratings'
-import type { City, RatingCategory, PlaceCategory, VisitedPlace } from '@typedefs/database'
+import type { City, RatingCategory, VisitedPlace } from '@typedefs/database'
 import type { PlaceRatingsInput } from '@lib/validation'
 import type { CountryFillIntensity } from '@typedefs/api'
 
@@ -40,27 +40,6 @@ function buildFillIntensity(places: VisitedPlace[]): CountryFillIntensity[] {
   }))
 }
 
-// Create a local (guest) VisitedPlace without a DB round-trip
-function makeLocalPlace(countryCode: string, cityId: string, category: PlaceCategory): VisitedPlace {
-  return {
-    id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    user_id: 'guest',
-    country_code: countryCode,
-    city_id: cityId,
-    category,
-    overall_score: null,
-    review: null,
-    visited_date: null,
-    planned_date: null,
-    planned_budget: null,
-    daily_budget: null,
-    currency_code: null,
-    notes: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }
-}
-
 export default function MapScreen() {
   const {
     activeDrillDownCountry,
@@ -69,18 +48,15 @@ export default function MapScreen() {
   } = useMap()
 
   const { activeCategory, setActiveCategory, activeDrillDownCity, setDrillDown } = useUIStore()
-  const { places, addPlace, updatePlace: updatePlaceInStore, removePlace, setPlaces } = usePlacesStore()
+  const { places, addPlace, updatePlace: updatePlaceInStore, removePlace } = usePlacesStore()
   const { user } = useAuthStore()
   const [drillDownCityData, setDrillDownCityData] = useState<City[]>([])
   const [ratingFormError, setRatingFormError] = useState<string | null>(null)
   const [showLabels, setShowLabels] = useState(false)
   const [mapInitialRatings, setMapInitialRatings] = useState<Partial<Record<RatingCategory, 1 | 2 | 3 | 4 | 5>>>({})
 
-  // Load all places from DB when authenticated
-  useEffect(() => {
-    if (!user) return
-    void getPlaces(user.id, undefined, undefined, 500).then(({ data }) => setPlaces(data))
-  }, [user, setPlaces])
+  // Places load once in the root layout when the user is known — fetching
+  // here again would just duplicate that query on every visit to this tab.
 
   // Derive fill intensity from local store — updates immediately after any save
   // Filter by activeCategory so each tab only highlights its own places
@@ -159,15 +135,8 @@ export default function MapScreen() {
       setRatingFormError(null)
 
       if (!activeDrillDownCountry || !activeDrillDownCity) return
-      // Guest mode — save locally so the UI responds
-      if (!user) {
-        const existing = places.find(
-          (p) => p.country_code === activeDrillDownCountry && p.city_id === activeDrillDownCity && p.category === activeCategory,
-        )
-        if (!existing) addPlace(makeLocalPlace(activeDrillDownCountry, activeDrillDownCity, activeCategory))
-        clearDrillDown()
-        return
-      }
+      // The tabs layout guards authentication; null only during sign-out.
+      if (!user) return
 
       try {
         // Check if a visited_place already exists for this country+city+category
@@ -209,7 +178,7 @@ export default function MapScreen() {
         setRatingFormError(msg)
       }
     },
-    [user, places, activeCategory, activeDrillDownCountry, activeDrillDownCity, addPlace, updatePlaceInStore, clearDrillDown],
+    [user, activeCategory, activeDrillDownCountry, activeDrillDownCity, addPlace, updatePlaceInStore, clearDrillDown],
   )
 
   const handleRatingDismiss = useCallback(() => {
@@ -225,14 +194,7 @@ export default function MapScreen() {
       const existing = places.find(
         (p) => p.country_code === activeDrillDownCountry && p.city_id === cityId && p.category === activeCategory,
       )
-      if (!user) {
-        if (existing) {
-          removePlace(existing.id)
-        } else {
-          addPlace(makeLocalPlace(activeDrillDownCountry, cityId, activeCategory))
-        }
-        return
-      }
+      if (!user) return
       void (async () => {
         try {
           if (existing) {

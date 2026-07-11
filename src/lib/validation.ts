@@ -235,15 +235,6 @@ export const photoUploadSchema = z.object({
   sort_order: z.number().int('sort_order must be an integer').min(0).max(100).optional(),
 })
 
-/**
- * Push notification token registration.
- * Mitigates AS-09: validates token format and device type before storage.
- */
-export const pushTokenSchema = z.object({
-  expo_push_token: z.string().min(1, 'Push token is required').max(200, 'Push token is too long'),
-  device_type: z.enum(['ios', 'android', 'web']),
-})
-
 // ---------------------------------------------------------------------------
 // Type exports
 // ---------------------------------------------------------------------------
@@ -254,4 +245,3 @@ export type CreateGroupInput = z.infer<typeof createGroupSchema>
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>
 export type PlaceRatingsInput = z.infer<typeof placeRatingsSchema>
 export type PhotoUploadInput = z.infer<typeof photoUploadSchema>
-export type PushTokenInput = z.infer<typeof pushTokenSchema>

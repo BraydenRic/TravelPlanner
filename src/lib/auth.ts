@@ -136,27 +136,6 @@ export async function signOut(): Promise<void> {
 // Session accessors
 // ---------------------------------------------------------------------------
 
-/**
- * Returns the current session, or null if not authenticated.
- * Prefer getSession() over getUser() for non-critical checks (no network call).
- */
-export async function getSession() {
-  const { data: { session }, error } = await supabase.auth.getSession()
-  if (error) throw new AuthError('Failed to get session', error)
-  return session
-}
-
-/**
- * Returns the current user by making a network request to verify the JWT.
- * Use this when you need a guaranteed-fresh user object (e.g., before DB writes).
- * Mitigates AS-01 T-01-C: validates JWT server-side rather than trusting local state.
- */
-export async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error) throw new AuthError('Failed to get user', error)
-  return user
-}
-
 // ---------------------------------------------------------------------------
 // Session timeout
 // ---------------------------------------------------------------------------

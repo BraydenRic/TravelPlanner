@@ -31,7 +31,6 @@ import {
   createGroupSchema,
   updateProfileSchema,
   photoUploadSchema,
-  pushTokenSchema,
 } from '../../src/lib/validation'
 
 // ---------------------------------------------------------------------------
@@ -595,48 +594,6 @@ describe('photoUploadSchema', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// pushTokenSchema
-// ---------------------------------------------------------------------------
-
-describe('pushTokenSchema', () => {
-  it('accepts valid push tokens', () => {
-    expectValid(pushTokenSchema, {
-      expo_push_token: 'ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]',
-      device_type: 'ios',
-    })
-    expectValid(pushTokenSchema, {
-      expo_push_token: 'ExponentPushToken[yyyyyy]',
-      device_type: 'android',
-    })
-    expectValid(pushTokenSchema, {
-      expo_push_token: 'ExponentPushToken[web-token]',
-      device_type: 'web',
-    })
-  })
-
-  it('rejects empty push token', () => {
-    expectInvalid(pushTokenSchema, { expo_push_token: '', device_type: 'ios' })
-  })
-
-  it('rejects token over 200 characters', () => {
-    expectInvalid(pushTokenSchema, {
-      expo_push_token: 'x'.repeat(201),
-      device_type: 'ios',
-    })
-  })
-
-  it('rejects invalid device type', () => {
-    expectInvalid(pushTokenSchema, {
-      expo_push_token: 'ExponentPushToken[xxx]',
-      device_type: 'desktop',
-    })
-    expectInvalid(pushTokenSchema, {
-      expo_push_token: 'ExponentPushToken[xxx]',
-      device_type: 'IOS',
-    })
-  })
-})
 
 // ---------------------------------------------------------------------------
 // Cross-cutting XSS payload battery
